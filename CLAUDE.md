@@ -51,3 +51,7 @@ make deb-docker                            # package + lintian
 - New panes are split from the newest pane so the pane list order equals the saved index order,
   which is what `select-layout` maps layout cells onto.
 - `claude --resume <id>` refuses to run from a different directory; resumers pass `cwd`.
+- tmux does not scale a layout string to a different window size: `select-layout` shrinks the last
+  panes first (a 67:25 split saved at 93 rows became 43:1 at 45 rows). `layout_scale` in
+  `lib/layout.sh` rescales every cell proportionally and recomputes tmux's 16-bit checksum;
+  `restore_apply_layout` always goes through it.

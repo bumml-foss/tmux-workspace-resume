@@ -5,7 +5,8 @@
 Initial release.
 
 - `save` / `restore` of tmux sessions, windows, panes, names, layouts and directories, with
-  one session per byobu session group and idempotent restores.
+  one session per byobu session group and idempotent restores. Layouts are rescaled
+  proportionally to the window size at restore time (tmux itself would squash the last panes).
 - Resumers: Claude Code by session id (via `~/.claude/sessions`), ssh by command line, whitelist.
 - Auto-save through tmux hooks (debounced) and a systemd user timer; best-effort shutdown save;
   `ai-revive reboot` / `shutdown` for an exact snapshot.
