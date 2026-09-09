@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# ai-revive resumer: generic whitelist. Re-runs the command line of a direct child of the pane's
+# shell whose program name is listed in RESUME_COMMANDS (config), e.g. "vim htop tail".
+# SPDX-License-Identifier: GPL-3.0-or-later
+set -euo pipefail
+# shellcheck source=../lib/common.sh
+. "${AI_REVIVE_HOME:?}/lib/common.sh"
+
+case ${1:-} in
+	info) echo "whitelist: re-run programs listed in RESUME_COMMANDS (${AI_REVIVE_RESUME_COMMANDS:-unset})"; exit 0 ;;
+	probe) ;;
+	*) echo "usage: $0 probe|info" >&2; exit 2 ;;
+esac
+
+read -ra allowed <<< "${AI_REVIVE_RESUME_COMMANDS:-}"
+[ ${#allowed[@]} -gt 0 ] || exit 1
+for child in $(children_of "${AI_REVIVE_PANE_PID:?}"); do
+	name=$(proc_argv0 "$child")
+	[ -n "$name" ] || continue
+	for a in "${allowed[@]}"; do
+		[ "$a" = "$name" ] || continue
+		cmd=$(proc_cmdline_to_shell "$child")
+		[ -n "$cmd" ] || continue
+		jq -cn --arg cmd "$cmd" --arg name "$name" '{cmd: $cmd, meta: {program: $name}}'
+		exit 0
+	done
+done
+exit 1

@@ -1,0 +1,5 @@
+shell=bash
+external-sources=true
+source-path=SCRIPTDIR
+# SC2016: tests pass single-quoted conditions to wait_until, which evals them on every poll.
+disable=SC2016

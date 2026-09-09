@@ -1,0 +1,127 @@
+.TH AI-REVIVE-RESUMERS 7 "September 2026" "ai-revive 0.1.0" "Miscellaneous"
+.SH NAME
+ai-revive-resumers \- how ai-revive relaunches the program that ran in a pane
+.SH DESCRIPTION
+When
+.BR ai-revive (1)
+saves a snapshot it runs every
+.I resumer
+against every pane. A resumer is an executable that looks at the pane (its shell's pid, working
+directory and foreground command) and either claims it, printing the command that brings the
+program back, or passes. Resumers are tried in name order; the first claim wins.
+.SH LOCATIONS
+.TP
+.I /usr/share/ai-revive/resumers/
+Shipped resumers.
+.TP
+.I $XDG_CONFIG_HOME/ai-revive/resumers/
+User resumers. A file with the same name as a shipped one replaces it; a new name adds one.
+Names start with two digits that fix the order, e.g.
+.IR 15\-codex .
+.SH SHIPPED RESUMERS
+.TP
+.B 10-claude
+Claude Code registers every interactive process in
+.I ~/.claude/sessions/<pid>.json
+together with the tmux pane it runs in. The resumer finds the record for the pane, checks that
+the pid still belongs to that process, and emits
+.B claude \-\-resume
+.I session-id
+with the conversation's directory. Two Claude panes in the same directory therefore come back as
+two different conversations. A Claude without a record (started seconds ago) falls back to
+.BR "claude \-\-continue" .
+.TP
+.B 20-ssh
+Claims a pane whose foreground command is
+.B ssh
+and whose shell has an
+.B ssh
+child; emits that child's exact command line. Transports started by git, scp or rsync are not
+direct children of the shell and are left alone.
+.TP
+.B 90-whitelist
+Claims a pane whose shell has a child named in the
+.B RESUME_COMMANDS
+setting and emits its command line.
+.SH CONTRACT
+A resumer is invoked as
+.B <resumer> probe
+with these variables in the environment:
+.TP
+.B AI_REVIVE_PANE_ID
+The tmux pane id, e.g.
+.IR %38 .
+.TP
+.B AI_REVIVE_PANE_PID
+Pid of the pane's shell; the program is normally a direct child.
+.TP
+.B AI_REVIVE_WINDOW_ID
+.TP
+.B AI_REVIVE_SESSION
+.TP
+.B AI_REVIVE_CWD
+The pane's current directory.
+.TP
+.B AI_REVIVE_COMMAND
+The pane's foreground command as tmux reports it
+.RI ( #{pane_current_command} ).
+.TP
+.BI AI_REVIVE_ KEY
+Every configuration key, e.g.
+.BR AI_REVIVE_RESUME_COMMANDS .
+.TP
+.B AI_REVIVE_HOME
+The installation directory;
+.I $AI_REVIVE_HOME/lib/common.sh
+can be sourced for helpers such as
+.BR shell_quote ,
+.B proc_cmdline_to_shell
+and
+.BR children_of .
+.PP
+To claim the pane the resumer exits 0 and prints one JSON object:
+.PP
+.nf
+  {"cmd": "claude --resume 12345678-...", "cwd": "/home/me/proj", "meta": {...}}
+.fi
+.PP
+.B cmd
+is typed into the restored pane's shell after
+.BI "cd " cwd
+(default: the pane's directory) and must therefore be shell-safe; use
+.B shell_quote
+or
+.BR proc_cmdline_to_shell .
+.B meta
+is stored in the snapshot for display and debugging. Exit 1 passes the pane on to the next
+resumer. Any other exit status, output that is not JSON, or more than 5 seconds of runtime is
+logged and treated as a pass.
+.PP
+.B <resumer> info
+prints a one-line description for
+.BR "ai-revive resumers" .
+.SH EXAMPLE
+A resumer for a program that is restarted with the same arguments:
+.PP
+.nf
+  #!/usr/bin/env bash
+  set -euo pipefail
+  . "$AI_REVIVE_HOME/lib/common.sh"
+  case ${1:-} in
+    info) echo "myprog: restart with the same arguments"; exit 0 ;;
+    probe) ;;
+    *) exit 2 ;;
+  esac
+  for child in $(children_of "$AI_REVIVE_PANE_PID"); do
+    [ "$(proc_argv0 "$child")" = myprog ] || continue
+    jq -cn --arg cmd "$(proc_cmdline_to_shell "$child")" '{cmd: $cmd, meta: {}}'
+    exit 0
+  done
+  exit 1
+.fi
+.PP
+Try it on a live pane with
+.B ai-revive resumers probe
+.IR %id .
+.SH SEE ALSO
+.BR ai-revive (1)

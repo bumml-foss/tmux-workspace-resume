@@ -1,0 +1,7 @@
+ai-revive (0.1.0) unstable; urgency=medium
+
+  * Initial release: save/restore of tmux and byobu workspaces, resumers for
+    Claude Code (by session id), ssh and a generic whitelist, tmux hooks,
+    systemd user timer, byobu integration.
+
+ -- Benedikt Humml <bumml.foss@proton.me>  Wed, 09 Sep 2026 14:19:43 +0200

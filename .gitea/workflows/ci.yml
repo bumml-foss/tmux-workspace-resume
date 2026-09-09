@@ -1,0 +1,76 @@
+# ai-revive — lint + tests on every push, and a .deb release on a version tag.
+#
+# Jobs:
+#   test     shellcheck, bash -n and tests/run-tests.sh. The tests start private tmux servers
+#            (socket ai-revive-test-<pid>) with fake `claude` and `ssh` executables; they need
+#            tmux, jq, procps and a normal Linux userland, nothing else.
+#   release  only for tags `v<version>`: checks that the tag, VERSION and debian/changelog agree,
+#            builds ai-revive_<version>_all.deb with dpkg-buildpackage, runs lintian and attaches
+#            the .deb to a Gitea release for the tag (created if missing).
+#
+# The self-hosted runner (label ubuntu-latest) allows sudo apt-get, so no custom container is
+# needed. Release upload uses the auto-injected GITHUB_TOKEN, which Gitea scopes to this repo.
+name: ci
+on:
+  push:
+    branches: ['**']
+    tags: ['v*']
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install tool chain
+        run: |
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq shellcheck tmux jq procps util-linux
+      - name: Lint
+        run: make lint
+      - name: Test
+        run: make test
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install packaging tool chain
+        run: |
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq build-essential devscripts debhelper lintian
+      - name: Check the version everywhere agrees with the tag
+        run: |
+          set -euo pipefail
+          TAG=${GITHUB_REF#refs/tags/v}
+          VERSION=$(cat VERSION)
+          CHANGELOG=$(dpkg-parsechangelog -S Version)
+          test "$TAG" = "$VERSION" || { echo "::error::tag v$TAG != VERSION $VERSION"; exit 1; }
+          test "$CHANGELOG" = "$VERSION" || { echo "::error::debian/changelog $CHANGELOG != VERSION $VERSION"; exit 1; }
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "ASSET=ai-revive_${VERSION}_all.deb" >> "$GITHUB_ENV"
+          echo "RELEASE_TAG=v${VERSION}" >> "$GITHUB_ENV"
+      - name: Build the .deb
+        run: make deb
+      - name: Publish Gitea release + upload asset
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          API="${GITHUB_SERVER_URL}/api/v1/repos/${GITHUB_REPOSITORY}"
+          # Create the release for this tag (reuse it if it already exists).
+          rid=$(curl -sf -X POST "$API/releases" \
+                  -H "Authorization: token $TOKEN" -H "Content-Type: application/json" \
+                  -d "{\"tag_name\":\"${RELEASE_TAG}\",\"name\":\"${RELEASE_TAG}\",\"draft\":false,\"prerelease\":false}" \
+                | grep -oE '"id":[0-9]+' | head -1 | cut -d: -f2) || true
+          if [ -z "${rid:-}" ]; then
+            rid=$(curl -sf "$API/releases/tags/${RELEASE_TAG}" -H "Authorization: token $TOKEN" \
+                  | grep -oE '"id":[0-9]+' | head -1 | cut -d: -f2)
+          fi
+          test -n "$rid" || { echo "::error::could not create or find release ${RELEASE_TAG}"; exit 1; }
+          curl -sf -X POST "$API/releases/${rid}/assets?name=${ASSET}" \
+            -H "Authorization: token $TOKEN" \
+            -F "attachment=@dist/${ASSET};type=application/vnd.debian.binary-package" >/dev/null
+          echo "Uploaded ${ASSET} to release ${RELEASE_TAG}."

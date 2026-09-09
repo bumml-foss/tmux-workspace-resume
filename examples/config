@@ -1,0 +1,43 @@
+# ai-revive configuration — copy to ~/.config/ai-revive/config and uncomment what you change.
+# Plain KEY=VALUE lines (sourced by bash). Any key can also be set as AI_REVIVE_<KEY> in the
+# environment, which wins over this file.
+
+# When a tmux/byobu server starts fresh and a snapshot exists:
+#   reboot  restore only if the snapshot is from a previous boot (default)
+#   always  restore whenever the server starts fresh, e.g. after `tmux kill-server`
+#   never   only restore on request (prefix + KEY_RESTORE, or `ai-revive restore`)
+#AUTO_RESTORE=reboot
+
+# Period of the systemd user timer, in minutes. `ai-revive enable` applies a change.
+#SAVE_INTERVAL_MIN=5
+
+# Seconds to wait after a tmux event (new window, split, rename, ...) before saving, so a burst
+# of changes produces one snapshot.
+#SAVE_DEBOUNCE_S=3
+
+# Seconds after a restore before an extra save picks up the relaunched programs (0 = off).
+#RESTORE_SETTLE_S=15
+
+# Snapshots kept in $XDG_STATE_HOME/ai-revive/snapshots/ (older ones are deleted).
+#KEEP_SNAPSHOTS=20
+
+# Programs the whitelist resumer relaunches with their original arguments (space separated,
+# matched against the program name). Claude Code and ssh have their own resumers.
+#RESUME_COMMANDS="vi vim nvim emacs nano man less more tail top htop"
+
+# Restore timing: wait for the pane's shell, then RESTORE_DELAY_MS before typing the command,
+# and RESTORE_STAGGER_MS between panes. SHELL_WAIT_S caps the wait for a shell prompt.
+#RESTORE_DELAY_MS=300
+#RESTORE_STAGGER_MS=300
+#SHELL_WAIT_S=10
+
+# Key bindings (after the tmux prefix; byobu's prefix is F12 or ctrl-a).
+#KEY_SAVE=C-s
+#KEY_RESTORE=C-r
+
+# Socket of the tmux server to snapshot, for setups with a non-default TMUX_TMPDIR. Leave empty
+# for the default socket (what byobu uses).
+#TMUX_SOCKET=
+
+# debug | info | warn | error — for the log in $XDG_STATE_HOME/ai-revive/ai-revive.log
+#LOG_LEVEL=info

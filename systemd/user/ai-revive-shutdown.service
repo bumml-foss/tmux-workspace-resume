@@ -1,0 +1,19 @@
+# Best effort: the user manager stops this unit when the session ends, which usually happens
+# before the tmux server is killed, but systemd does not guarantee that order. Use
+# `ai-revive reboot` / `ai-revive shutdown` when the snapshot must be exact.
+[Unit]
+Description=ai-revive: snapshot the tmux/byobu workspace at shutdown
+Documentation=man:ai-revive(1)
+DefaultDependencies=no
+Before=shutdown.target
+Conflicts=shutdown.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/bin/true
+ExecStop=/usr/bin/ai-revive save --quiet
+TimeoutStopSec=20
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,7 @@
+[Unit]
+Description=ai-revive: snapshot the tmux/byobu workspace
+Documentation=man:ai-revive(1)
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/ai-revive save --quiet

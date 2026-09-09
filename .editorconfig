@@ -1,0 +1,15 @@
+# Shell, tmux and Makefile sources use tabs (byobu style); data/docs use two spaces.
+root = true
+
+[*]
+end_of_line = lf
+insert_final_newline = true
+charset = utf-8
+trim_trailing_whitespace = true
+
+[{*.sh,*.tmux,Makefile,bin/*,resumers/*,tests/**,debian/rules}]
+indent_style = tab
+
+[*.{yml,yaml,json,md}]
+indent_style = space
+indent_size = 2

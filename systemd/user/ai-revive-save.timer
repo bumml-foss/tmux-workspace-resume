@@ -1,0 +1,11 @@
+[Unit]
+Description=ai-revive: periodic workspace snapshot
+Documentation=man:ai-revive(1)
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=5min
+AccuracySec=30s
+
+[Install]
+WantedBy=timers.target

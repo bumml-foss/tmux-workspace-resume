@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# ai-revive resumer: ssh. Re-runs the exact ssh command line that was open in the pane.
+# Only an ssh that is the direct child of the pane's shell is claimed; git/scp/rsync transports
+# have their own parent process and are left alone.
+# SPDX-License-Identifier: GPL-3.0-or-later
+set -euo pipefail
+# shellcheck source=../lib/common.sh
+. "${AI_REVIVE_HOME:?}/lib/common.sh"
+
+case ${1:-} in
+	info) echo "ssh: reconnect with the same command line (host, user, port, options)"; exit 0 ;;
+	probe) ;;
+	*) echo "usage: $0 probe|info" >&2; exit 2 ;;
+esac
+
+[ "${AI_REVIVE_COMMAND:-}" = ssh ] || exit 1
+for child in $(children_of "${AI_REVIVE_PANE_PID:?}"); do
+	[ "$(proc_argv0 "$child")" = ssh ] || continue
+	cmd=$(proc_cmdline_to_shell "$child")
+	[ -n "$cmd" ] || continue
+	jq -cn --arg cmd "$cmd" --argjson pid "$child" '{cmd: $cmd, meta: {pid: $pid}}'
+	exit 0
+done
+exit 1

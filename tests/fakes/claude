@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# Fake `claude` for the test-suite. Behaves like the real CLI as far as ai-revive is concerned:
+# records its arguments, registers itself in ~/.claude/sessions/<pid>.json (same fields the real
+# one writes, including the tmux pane reference and procStart) and then blocks.
+set -euo pipefail
+: "${FAKE_LOG:?FAKE_LOG must point to a directory}"
+printf '%s\n' "$@" > "$FAKE_LOG/claude.$$.args"
+
+sid=""
+args=("$@")
+for ((i = 0; i < ${#args[@]}; i++)); do
+	if [ "${args[$i]}" = "--resume" ] && [ $((i + 1)) -lt ${#args[@]} ]; then
+		sid=${args[$((i + 1))]}
+	fi
+done
+[ -n "$sid" ] || sid=$(cat /proc/sys/kernel/random/uuid)
+
+if [ "${FAKE_CLAUDE_NO_REGISTRY:-0}" != 1 ]; then
+	dir=${CLAUDE_CONFIG_DIR:-$HOME/.claude}/sessions
+	mkdir -p "$dir"
+	tmuxref=$(tmux display -p -t "${TMUX_PANE:?}" '#{session_name}:#{window_id}.#{pane_id}')
+	procstart=$(sed 's/^.*) //' "/proc/$$/stat" | awk '{print $20}')
+	jq -cn --argjson pid "$$" --arg sid "$sid" --arg cwd "$PWD" --arg tmux "$tmuxref" --arg ps "$procstart" \
+		'{pid: $pid, sessionId: $sid, cwd: $cwd, tmux: $tmux, procStart: $ps, name: "fake-session",
+		  nameSource: "derived", status: "idle", version: "0.0.0-fake", kind: "interactive"}' > "$dir/$$.json"
+fi
+# exec keeps pid and procStart; -a makes #{pane_current_command} read "claude" like the real thing.
+exec -a claude sleep infinity

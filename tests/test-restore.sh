@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+# restore: a snapshot taken on server A is rebuilt on a fresh server B (names, panes, cwds, layouts).
+. "$(dirname "${BASH_SOURCE[0]}")/lib/harness.sh"
+
+mkdir -p "$HOME/proj-a" "$HOME/proj-b"
+fresh_server work
+T rename-window -t work:0 edit
+T new-window -t work -n shells -c "$HOME/proj-a"
+T split-window -t work:1 -v -c "$HOME/proj-b"
+T split-window -t work:1 -h -c "$HOME"
+T select-layout -t work:1 main-vertical
+T new-window -t work -n three -c "$HOME/proj-b"
+T select-window -t work:1
+"$AR" save
+before=$(T list-panes -s -t work -F '#{window_index}:#{window_name}:#{pane_index}:#{pane_current_path}')
+layout_before=$(T display -p -t work:1 '#{window_layout}')
+kill_server
+
+fresh_server 0
+"$AR" restore
+T has-session -t work || fail "session not restored"
+T has-session -t 0 2>/dev/null && fail "fresh placeholder session should have been renamed"
+after=$(T list-panes -s -t work -F '#{window_index}:#{window_name}:#{pane_index}:#{pane_current_path}')
+assert_eq "$after" "$before" "windows/panes/cwds"
+assert_eq "$(layout_shape "$(T display -p -t work:1 "#{window_layout}")")" "$(layout_shape "$layout_before")" "layout shape"
+assert_eq "$(T display -p -t work '#{window_index}')" 1 "active window"
+assert_eq "$(T display -p -t work:1 '#{automatic-rename}')" 0 "manual window name keeps automatic-rename off"
+
+# idempotent: a second restore changes nothing
+"$AR" restore
+assert_eq "$(T list-panes -s -t work -F x | wc -l)" 5 "pane count after second restore"
+assert_eq "$(T list-sessions -F x | wc -l)" 1 "session count after second restore"
+
+# dry run on a fresh server creates nothing and prints the plan
+kill_server
+fresh_server 0
+out=$("$AR" restore --dry-run)
+echo "$out" | grep -q "would rename fresh session '0' to 'work'" || fail "dry-run plan: $out"
+echo "$out" | grep -q "window 1 'shells' (3 panes)" || fail "dry-run window line: $out"
+assert_eq "$(T list-windows -t 0 -F x | wc -l)" 1 "dry run must not create windows"
+echo "ok"

@@ -1,0 +1,71 @@
+#!/usr/bin/env bash
+# ai-revive resumer: Claude Code. Relaunches the exact conversation that was open in the pane.
+#
+# Claude Code registers every interactive process in ~/.claude/sessions/<pid>.json with its
+# sessionId, cwd and the tmux pane it runs in ("<session>:@<window>.%<pane>"). We match on the
+# pane id only (the session-name prefix goes stale when byobu re-attaches) and double-check that
+# the pid is still the same process (procStart == the kernel start time in /proc/<pid>/stat).
+# SPDX-License-Identifier: GPL-3.0-or-later
+set -euo pipefail
+# shellcheck source=../lib/common.sh
+. "${AI_REVIVE_HOME:?}/lib/common.sh"
+
+case ${1:-} in
+	info) echo "Claude Code: resume the conversation that was open in the pane (claude --resume <session-id>)"; exit 0 ;;
+	probe) ;;
+	*) echo "usage: $0 probe|info" >&2; exit 2 ;;
+esac
+
+dir=${CLAUDE_CONFIG_DIR:-$HOME/.claude}/sessions
+pane_id=${AI_REVIVE_PANE_ID:?}
+pane_pid=${AI_REVIVE_PANE_PID:?}
+command=${AI_REVIVE_COMMAND:-}
+
+emit() { # sessionId cwd name status version
+	jq -cn --arg cmd "claude --resume $(shell_quote "$1")" --arg cwd "$2" --arg sid "$1" \
+		--arg name "$3" --arg status "$4" --arg version "$5" \
+		'{cmd: $cmd, cwd: $cwd, meta: {sessionId: $sid, name: $name, status: $status, version: $version}}'
+}
+
+# record_fields FILE: "pid\tprocStart\tsessionId\tcwd\tname\tstatus\tversion" if the record is live.
+record_fields() {
+	local pid ps sid cwd name status version
+	IFS=$'\t' read -r pid ps sid cwd name status version < <(jq -r \
+		'[(.pid|tostring), (.procStart // ""), (.sessionId // ""), (.cwd // ""), (.name // ""), (.status // ""), (.version // "")] | @tsv' "$1" 2>/dev/null) || return 1
+	[ -n "$sid" ] && [ -n "$pid" ] && proc_alive "$pid" || return 1
+	if [ -n "$ps" ] && [ "$(proc_starttime "$pid" 2>/dev/null)" != "$ps" ]; then return 1; fi
+	printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$pid" "$ps" "$sid" "$cwd" "$name" "$status" "$version"
+}
+
+shopt -s nullglob
+records=("$dir"/*.json)
+shopt -u nullglob
+
+# 1. by pane id
+if [ ${#records[@]} -gt 0 ]; then
+	while IFS= read -r f; do
+		if line=$(record_fields "$f"); then
+			IFS=$'\t' read -r _ _ sid cwd name status version <<< "$line"
+			emit "$sid" "$cwd" "$name" "$status" "$version"
+			exit 0
+		fi
+	done < <(jq -r --arg p ".$pane_id" 'select((.tmux // "") | endswith($p)) | input_filename' "${records[@]}" 2>/dev/null)
+fi
+
+# 2. by process tree: a claude child (or grandchild) of the pane's shell with a record
+for child in $(children_of "$pane_pid") $(for c in $(children_of "$pane_pid"); do children_of "$c"; done); do
+	f=$dir/$child.json
+	[ -r "$f" ] || continue
+	if line=$(record_fields "$f"); then
+		IFS=$'\t' read -r _ _ sid cwd name status version <<< "$line"
+		emit "$sid" "$cwd" "$name" "$status" "$version"
+		exit 0
+	fi
+done
+
+# 3. claude is running but has no record (older version, or started a moment ago): newest in cwd
+if [ "$command" = claude ]; then
+	jq -cn --arg cwd "${AI_REVIVE_CWD:-}" '{cmd: "claude --continue", cwd: $cwd, meta: {fallback: "continue"}}'
+	exit 0
+fi
+exit 1
