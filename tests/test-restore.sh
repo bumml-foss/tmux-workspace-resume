@@ -38,4 +38,20 @@ out=$("$AR" restore --dry-run)
 echo "$out" | grep -q "would rename fresh session '0' to 'work'" || fail "dry-run plan: $out"
 echo "$out" | grep -q "window 1 'shells' (3 panes)" || fail "dry-run window line: $out"
 assert_eq "$(T list-windows -t 0 -F x | wc -l)" 1 "dry run must not create windows"
+# a smaller terminal gets proportional splits: 30:19 rows saved at 200x50 -> 18:11 at 100x30
+kill_server
+fresh_server big
+T split-window -t big:0 -v -c "$HOME"
+T resize-pane -t big:0.0 -y 30
+assert_eq "$(T display -p -t big:0.0 '#{pane_height}')" 30 "setup"
+"$AR" save
+kill_server
+fresh_server 0 100 30
+"$AR" restore --layout-only
+assert_eq "$(T list-panes -t big:0 -F '#{pane_height}' | tr '\n' ' ')" "18 11 " "scaled pane heights"
+# a window too small for the saved panes falls back to tiled instead of failing
+kill_server
+fresh_server 0 100 4
+"$AR" restore --layout-only
+assert_eq "$(T list-panes -t big:0 -F x | wc -l)" 2 "panes still created when the layout does not fit"
 echo "ok"

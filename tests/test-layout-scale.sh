@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # layout_scale: identity is exact (checksum included), other sizes keep the proportions, nested
-# containers survive, and tmux accepts the result.
+# containers survive, tiny targets stay valid, and tmux accepts the result. The restore-path
+# round trip through a smaller server lives in test-restore.sh.
 . "$(dirname "${BASH_SOURCE[0]}")/lib/harness.sh"
 . "$REPO/lib/layout.sh"
 
@@ -22,26 +23,19 @@ assert_eq "$(layout_scale "$nested" 100 30 | cut -d, -f2-)" "100x30,0,0[100x22,0
 # a pane never shrinks below one row/column
 out=$(layout_scale "$big" 190 3 | cut -d, -f2-)
 assert_eq "$out" "190x3,0,0[190x1,0,0,13,190x1,0,2,33]" "minimum size"
+# many tiny panes: the remainder is taken one row at a time, never below 1 (used to yield -1)
+eight='0000,10x132,0,0[10x40,0,0,1,10x40,0,41,2,10x40,0,82,3,10x1,0,123,4,10x1,0,125,5,10x1,0,127,6,10x1,0,129,7,10x1,0,131,8]'
+assert_eq "$(layout_scale "$eight" 10 15 | cut -d, -f2-)" "10x15,0,0[10x1,0,0,1,10x1,0,2,2,10x1,0,4,3,10x1,0,6,4,10x1,0,8,5,10x1,0,10,6,10x1,0,12,7,10x1,0,14,8]" "eight panes in 15 rows"
+# a box that cannot hold its panes is an error (restore then falls back to tiled)
+layout_scale "$eight" 10 10 >/dev/null 2>&1 && fail "unfittable layout accepted"
 # garbage is rejected
 layout_scale "nope" 10 10 >/dev/null 2>&1 && fail "garbage accepted"
 
 # tmux accepts the scaled string: three panes restored on a 100x30 server from a 190x45 layout
-T new-session -d -s l -x 100 -y 30
+fresh_server l 100 30
 T split-window -t l:0 -v; T split-window -t l:0.0 -h
 scaled=$(layout_scale "$nested" 100 30)
 T select-layout -t l:0 "$scaled" || fail "tmux rejected: $scaled"
 assert_eq "$(layout_shape "$(T display -p -t l:0 '#{window_layout}')")" "$(layout_shape "$scaled")" "applied layout"
 echo ok
 
-# end to end: a 30:19 split saved at 200x50 restores as 18:11 at 100x30, not as 28:1
-kill_server
-fresh_server big
-T split-window -t big:0 -v -c "$HOME"
-T resize-pane -t big:0.0 -y 30
-assert_eq "$(T display -p -t big:0.0 '#{pane_height}')" 30 "setup"
-"$AR" save
-kill_server
-T new-session -d -s 0 -x 100 -y 30
-"$AR" restore --layout-only
-assert_eq "$(T list-panes -t big:0 -F '#{pane_height}' | tr '\n' ' ')" "18 11 " "scaled pane heights"
-echo ok

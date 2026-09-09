@@ -62,10 +62,10 @@ wait_until() {
 pane_cmd() { T display -p -t "$1" '#{pane_current_command}'; }
 snapshot_dir() { printf '%s' "$XDG_STATE_HOME/ai-revive/snapshots"; }
 last_snapshot() { readlink -f "$(snapshot_dir)/last.json"; }
-# fresh_server: start a detached session of a useful size (the default 80x24 is too small for splits).
+# fresh_server [NAME [COLS ROWS]]: start a detached session (default 200x50; 80x24 is too small for splits).
 fresh_server() {
 	local n=10
-	until T new-session -d -s "${1:-0}" -x 200 -y 50 -c "$HOME" 2>/dev/null; do
+	until T new-session -d -s "${1:-0}" -x "${2:-200}" -y "${3:-50}" -c "$HOME" 2>/dev/null; do
 		n=$((n - 1)); [ "$n" -gt 0 ] || fail "could not start the test tmux server"
 		sleep 0.2
 	done

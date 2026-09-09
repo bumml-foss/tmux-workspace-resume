@@ -20,18 +20,17 @@ restore_find_fresh_session() {
 	printf '%s' "$name"
 }
 
-# restore_apply_layout WINDOW_ID LAYOUT INDEX: scale the saved layout to the window's current
-# size (tmux itself would squash the last panes) and apply it; fall back to tiled.
+# restore_apply_layout WINDOW_ID LAYOUT INDEX: apply the saved layout scaled to the window's
+# current size (see lib/layout.sh for why); "tiled" when it cannot be scaled or applied.
 restore_apply_layout() {
 	local wid=$1 layout=$2 widx=$3 size scaled
 	size=$(tmux_cmd display -p -t "$wid" '#{window_width} #{window_height}')
-	if scaled=$(layout_scale "$layout" "${size% *}" "${size#* }" 2>/dev/null) && [ -n "$scaled" ]; then
-		layout=$scaled
-	else
-		log_warn "window $widx: could not scale the saved layout, applying it as is"
+	if scaled=$(layout_scale "$layout" "${size% *}" "${size#* }" 2>/dev/null) &&
+		tmux_cmd select-layout -t "$wid" "$scaled" >/dev/null 2>&1; then
+		return 0
 	fi
-	tmux_cmd select-layout -t "$wid" "$layout" >/dev/null 2>&1 ||
-		{ log_warn "window $widx: could not apply saved layout, using tiled"; tmux_cmd select-layout -t "$wid" tiled >/dev/null; }
+	log_warn "window $widx: saved layout does not fit ${size% *}x${size#* }, using tiled"
+	tmux_cmd select-layout -t "$wid" tiled >/dev/null
 }
 
 # restore_wait_for_shell PANE_ID: until the pane's foreground process is a shell (SHELL_WAIT_S).

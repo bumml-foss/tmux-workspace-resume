@@ -1,9 +1,9 @@
 # shellcheck shell=bash
 # ai-revive — layout strings. tmux's #{window_layout} is "csum,WxH,X,Y<tree>" where a leaf is
 # "WxH,X,Y,paneid" and containers are "WxH,X,Y{...}" (side by side) or "WxH,X,Y[...]" (stacked).
-# select-layout accepts a string of a different size, but it does not scale it: it shrinks the
-# last cells first, so a snapshot taken on a big screen restores with squashed panes on a small
-# one. layout_scale rescales every cell proportionally and recomputes the checksum.
+# select-layout accepts a string of a different size, but it does not scale it: every pane is
+# shrunk (or grown) by the same absolute amount, so a 67:25 split saved at 93 rows becomes 43:1
+# at 45 rows. layout_scale rescales every cell proportionally and recomputes the checksum.
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 AI_REVIVE_LAYOUT_AWK='
@@ -35,22 +35,30 @@ function cell(   i, kids) {
 	return i
 }
 # --- scaler: give cell i the box w x h at x,y and distribute among its children ---
-function scale(i, w, h, x, y,   n, k, j, total, avail, sum, sz, pos, acc, extra) {
+# Children get floor(share); the rounding remainder is handed out one row/column at a time to
+# the currently largest child (taken from it when negative, never below 1). A box that cannot
+# hold n children plus their n-1 separators is an error: the caller falls back to "tiled".
+function biggest(k, n, min,   j, b) {
+	b = 0
+	for (j = 1; j <= n; j++) if (NS[k[j]] > min && (b == 0 || NS[k[j]] > NS[b])) b = k[j]
+	return b
+}
+function scale(i, w, h, x, y,   n, k, j, total, avail, sum, sz, pos, b) {
 	W[i] = w; H[i] = h; X[i] = x; Y[i] = y
 	if (T[i] == "leaf") return
 	n = split(KIDS[i], k, " ")
 	total = 0
 	for (j = 1; j <= n; j++) total += (T[i] == "lr" ? OW[k[j]] : OH[k[j]])
 	avail = (T[i] == "lr" ? w : h) - (n - 1)          # one separator between children
-	if (avail < n) avail = n
+	if (avail < n) fail("window too small: " n " panes do not fit in " (T[i] == "lr" ? w " columns" : h " rows"))
 	sum = 0
 	for (j = 1; j <= n; j++) {
 		sz = int((T[i] == "lr" ? OW[k[j]] : OH[k[j]]) * avail / total)
 		if (sz < 1) sz = 1
 		NS[k[j]] = sz; sum += sz
 	}
-	extra = avail - sum                              # rounding remainder -> largest child
-	if (extra != 0) { acc = k[1]; for (j = 2; j <= n; j++) if (NS[k[j]] > NS[acc]) acc = k[j]; NS[acc] += extra }
+	while (sum < avail) { b = biggest(k, n, 0); NS[b]++; sum++ }
+	while (sum > avail) { b = biggest(k, n, 1); if (b == 0) fail("cannot shrink"); NS[b]--; sum-- }
 	pos = (T[i] == "lr" ? x : y)
 	for (j = 1; j <= n; j++) {
 		if (T[i] == "lr") scale(k[j], NS[k[j]], h, pos, y); else scale(k[j], w, NS[k[j]], x, pos)
