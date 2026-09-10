@@ -3,8 +3,9 @@
 #
 # Claude Code registers every interactive process in ~/.claude/sessions/<pid>.json with its
 # sessionId, cwd and the tmux pane it runs in ("<session>:@<window>.%<pane>"). We match on the
-# pane id only (the session-name prefix goes stale when byobu re-attaches) and double-check that
-# the pid is still the same process (procStart == the kernel start time in /proc/<pid>/stat).
+# pane id only (the session-name prefix goes stale when byobu re-attaches), fall back to the
+# process tree, and double-check that the pid is still the same process (procStart == the
+# kernel start time in /proc/<pid>/stat).
 # SPDX-License-Identifier: GPL-3.0-or-later
 set -euo pipefail
 # shellcheck source=../lib/common.sh
@@ -52,20 +53,27 @@ if [ ${#records[@]} -gt 0 ]; then
 	done < <(jq -r --arg p ".$pane_id" 'select((.tmux // "") | endswith($p)) | input_filename' "${records[@]}" 2>/dev/null)
 fi
 
-# 2. by process tree: a claude child (or grandchild) of the pane's shell with a record
-for child in $(children_of "$pane_pid") $(for c in $(children_of "$pane_pid"); do children_of "$c"; done); do
-	f=$dir/$child.json
-	[ -r "$f" ] || continue
+# 2. by process tree: any live record whose process runs under the pane's shell (any depth)
+for f in "${records[@]}"; do
 	if line=$(record_fields "$f"); then
-		IFS=$'\t' read -r _ _ sid cwd name status version <<< "$line"
-		emit "$sid" "$cwd" "$name" "$status" "$version"
-		exit 0
+		IFS=$'\t' read -r rpid _ sid cwd name status version <<< "$line"
+		if proc_is_descendant "$rpid" "$pane_pid"; then
+			emit "$sid" "$cwd" "$name" "$status" "$version"
+			exit 0
+		fi
 	fi
 done
 
-# 3. claude is running but has no record (older version, or started a moment ago): newest in cwd
+# 3. claude is running but has no record (older version, or started a moment ago): relaunch
+# exactly what was typed. `claude --continue` would be a guess that can attach two panes to
+# the same conversation, so a plain `claude` starts a new one and the old one stays resumable.
 if [ "$command" = claude ]; then
-	jq -cn --arg cwd "${AI_REVIVE_CWD:-}" '{cmd: "claude --continue", cwd: $cwd, meta: {fallback: "continue"}}'
-	exit 0
+	for child in $(children_of "$pane_pid"); do
+		[ "$(proc_argv0 "$child")" = claude ] || continue
+		cmd=$(proc_cmdline_to_shell "$child")
+		[ -n "$cmd" ] || continue
+		jq -cn --arg cmd "$cmd" --arg cwd "${AI_REVIVE_CWD:-}" '{cmd: $cmd, cwd: $cwd, meta: {fallback: "argv"}}'
+		exit 0
+	done
 fi
 exit 1

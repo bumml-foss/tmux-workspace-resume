@@ -24,5 +24,7 @@ if [ "${FAKE_CLAUDE_NO_REGISTRY:-0}" != 1 ]; then
 		'{pid: $pid, sessionId: $sid, cwd: $cwd, tmux: $tmux, procStart: $ps, name: "fake-session",
 		  nameSource: "derived", status: "idle", version: "0.0.0-fake", kind: "interactive"}' > "$dir/$$.json"
 fi
-# exec keeps pid and procStart; -a makes #{pane_current_command} read "claude" like the real thing.
+# exec keeps pid and procStart; -a makes #{pane_current_command} read "claude" like the real
+# thing. The command line of the blocked process is "claude infinity" (sleep takes no other
+# arguments), which is what the resumer's argv fallback sees.
 exec -a claude sleep infinity

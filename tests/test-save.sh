@@ -24,6 +24,7 @@ assert_json "$snap" ".sessions[0].windows[1].panes[1].cwd == \"$HOME/proj-b\""
 assert_json "$snap" '.sessions[0].windows[2].automatic_rename == true'
 assert_json "$snap" '.sessions[0].windows[1].layout | test("^[0-9a-f]{4},")'
 assert_json "$snap" '.sessions[0].active_window == 2'
+assert_json "$snap" '.sessions[0].windows[0].width == 200 and .sessions[0].windows[0].height == 50'
 assert_json "$snap" '[.sessions[].windows[].panes[] | select(.restore_cmd != null)] | length == 0'
 
 # pruning keeps KEEP_SNAPSHOTS files

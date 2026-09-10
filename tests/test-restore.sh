@@ -31,11 +31,20 @@ assert_eq "$(T display -p -t work:1 '#{automatic-rename}')" 0 "manual window nam
 assert_eq "$(T list-panes -s -t work -F x | wc -l)" 5 "pane count after second restore"
 assert_eq "$(T list-sessions -F x | wc -l)" 1 "session count after second restore"
 
+# a program started in the placeholder window survives the restore (moved after the last window)
+kill_server
+fresh_server 0
+type_in 0:0 "tail -f /dev/null"
+wait_until 5 '[ "$(pane_cmd 0:0)" = tail ]' || fail "tail not running"
+"$AR" restore
+assert_eq "$(T list-windows -t work -F '#{window_index}' | tr '\n' ' ')" "0 1 2 3 " "restored windows plus the kept one"
+assert_eq "$(pane_cmd work:3)" tail "kept window still runs the program"
+
 # dry run on a fresh server creates nothing and prints the plan
 kill_server
 fresh_server 0
 out=$("$AR" restore --dry-run)
-echo "$out" | grep -q "would rename fresh session '0' to 'work'" || fail "dry-run plan: $out"
+echo "$out" | grep -q "would rename session '0' to 'work'" || fail "dry-run plan: $out"
 echo "$out" | grep -q "window 1 'shells' (3 panes)" || fail "dry-run window line: $out"
 assert_eq "$(T list-windows -t 0 -F x | wc -l)" 1 "dry run must not create windows"
 # a smaller terminal gets proportional splits: 30:19 rows saved at 200x50 -> 18:11 at 100x30

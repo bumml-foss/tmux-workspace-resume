@@ -24,26 +24,28 @@ save_pick_sessions() {
 # save_collect_session NAME GROUP: JSON object for one session (windows -> panes), probing resumers.
 save_collect_session() {
 	local rep=$1 group=$2 US=$'\x1f'
-	local widx wid wname wauto wlayout wactive pidx pid ppid pcmd ppath pactive ptitle probe
+	local widx wid wname wauto wlayout wactive wwidth wheight pidx pid ppid pcmd ppath pactive ptitle probe
 	local panes=()
-	while IFS=$US read -r widx wid wname wauto wlayout wactive pidx pid ppid pcmd ppath pactive ptitle; do
+	while IFS=$US read -r widx wid wname wauto wlayout wactive wwidth wheight pidx pid ppid pcmd ppath pactive ptitle; do
 		[ -n "$pid" ] || continue
 		probe=$(resumers_probe "$pid" "$ppid" "$wid" "$rep" "$ppath" "$pcmd")
 		panes+=("$(jq -cn \
 			--argjson widx "$widx" --arg wid "$wid" --arg wname "$wname" --argjson wauto "$( [ "$wauto" = 1 ] && echo true || echo false )" \
 			--arg wlayout "$wlayout" --argjson wactive "$( [ "$wactive" = 1 ] && echo true || echo false )" \
+			--argjson wwidth "${wwidth:-0}" --argjson wheight "${wheight:-0}" \
 			--argjson pidx "$pidx" --arg pid "$pid" --argjson ppid "$ppid" --arg pcmd "$pcmd" --arg ppath "$ppath" \
 			--argjson pactive "$( [ "$pactive" = 1 ] && echo true || echo false )" --arg ptitle "$ptitle" --argjson probe "$probe" \
 			'{window_index: $widx, window_id: $wid, window_name: $wname, automatic_rename: $wauto, layout: $wlayout,
-			  window_active: $wactive, index: $pidx, id: $pid, pid: $ppid, command: $pcmd, cwd: $ppath, active: $pactive,
+			  window_active: $wactive, width: $wwidth, height: $wheight, index: $pidx, id: $pid, pid: $ppid, command: $pcmd, cwd: $ppath, active: $pactive,
 			  title: $ptitle, resumer: ($probe.resumer // null), restore_cmd: ($probe.cmd // null),
 			  restore_cwd: (if ($probe.cwd // "") == "" then $ppath else $probe.cwd end), meta: ($probe.meta // {})}')")
-	done < <(tmux_cmd list-panes -s -t "=$rep" -F "#{window_index}	#{window_id}	#{window_name}	#{automatic-rename}	#{window_layout}	#{window_active}	#{pane_index}	#{pane_id}	#{pane_pid}	#{pane_current_command}	#{pane_current_path}	#{pane_active}	#{pane_title}" | tr '\t' '\037')
+	done < <(tmux_cmd list-panes -s -t "=$rep" -F "#{window_index}	#{window_id}	#{window_name}	#{automatic-rename}	#{window_layout}	#{window_active}	#{window_width}	#{window_height}	#{pane_index}	#{pane_id}	#{pane_pid}	#{pane_current_command}	#{pane_current_path}	#{pane_active}	#{pane_title}" | tr '\t' '\037')
 	[ ${#panes[@]} -gt 0 ] || return 1
 	printf '%s\n' "${panes[@]}" | jq -s --arg name "$group" --arg group "$group" --arg rep "$rep" '
 		group_by(.window_index) | map({
 			index: .[0].window_index, id: .[0].window_id, name: .[0].window_name,
 			automatic_rename: .[0].automatic_rename, layout: .[0].layout, active: .[0].window_active,
+			width: .[0].width, height: .[0].height,
 			panes: (sort_by(.index) | map({index, id, pid, cwd, command, active, title, resumer, restore_cmd, restore_cwd, meta}))
 		}) as $windows
 		| {name: $name, group: $group, saved_from: $rep,
@@ -64,30 +66,30 @@ save_collect() {
 		'{version: 1, saved_at: $saved_at, boot_id: $boot, tmux_version: $tmux, hostname: $host, sessions: .}'
 }
 
-# save_is_blank JSON: true for the "just started" shape (1 session, 1 window, 1 pane, no command).
-save_is_blank() {
-	printf '%s' "$1" | jq -e '
-		(.sessions | length) == 1 and ([.sessions[].windows[]] | length) == 1
-		and ([.sessions[].windows[].panes[]] | length) == 1
-		and ([.sessions[].windows[].panes[] | select(.restore_cmd != null)] | length) == 0' >/dev/null 2>&1
+# save_restore_pending: the newest snapshot is from a previous boot and no restore has had its
+# chance on this server yet (restore writes the marker). Overwriting it now would lose the
+# workspace that is about to be brought back.
+save_restore_pending() {
+	local last spid
+	last=$(snapshot_dir)/last.json
+	[ -e "$last" ] || return 1
+	[ "$(jq -r '.boot_id // ""' "$last" 2>/dev/null)" != "$(boot_id)" ] || return 1
+	spid=$(server_pid) || return 1
+	[ ! -e "$(runtime_dir)/restored-$spid" ]
 }
 
 # save_now [--force]: write a snapshot unless a guard says the moment is wrong.
 save_now() {
 	local force=0
 	[ "${1:-}" = "--force" ] && force=1
-	local rd; rd=$(runtime_dir)
 	if ! has_server; then log_debug "no tmux server; nothing to save"; return 0; fi
-	if [ $force -eq 0 ] && [ -r "$rd/restoring" ] && proc_alive "$(cat "$rd/restoring" 2>/dev/null || echo 0)"; then
-		log_debug "a restore is in progress; skipping save"; return 0
+	if [ $force -eq 0 ] && restore_in_progress; then log_debug "a restore is in progress; skipping save"; return 0; fi
+	if [ $force -eq 0 ] && save_restore_pending; then
+		log_info "the snapshot is from a previous boot and no restore ran on this server yet; keeping it (ai-revive restore, or save --force)"
+		return 0
 	fi
 	local json
 	if ! json=$(save_collect); then log_debug "no panes found; nothing to save"; return 0; fi
-	if [ $force -eq 0 ] && save_is_blank "$json" && [ -e "$(snapshot_dir)/last.json" ] &&
-		! save_is_blank "$(cat "$(snapshot_dir)/last.json")"; then
-		log_info "server looks freshly started; keeping the previous snapshot (use --force to overwrite)"
-		return 0
-	fi
 	local file; file=$(printf '%s' "$json" | snapshot_write) || return 1
 	log_info "saved $(snapshot_summary "$file") -> $file"
 }

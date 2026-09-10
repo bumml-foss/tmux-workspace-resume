@@ -5,7 +5,6 @@
 
 AI_REVIVE_QUIET=${AI_REVIVE_QUIET:-0}
 quiet_on() { AI_REVIVE_QUIET=1; }
-AI_REVIVE_SHELLS=${AI_REVIVE_SHELLS:-"bash zsh fish sh dash ksh mksh tcsh csh"}
 
 # ---------------------------------------------------------------- directories
 state_dir() { printf '%s' "${XDG_STATE_HOME:-$HOME/.local/state}/ai-revive"; }
@@ -88,10 +87,15 @@ proc_starttime() {
 	sed 's/^.*) //' "/proc/$1/stat" | awk '{print $20}'
 }
 proc_alive() { [ -d "/proc/$1" ]; }
-is_shell() {
-	local name=${1##*/} s
-	name=${name#-}
-	for s in $AI_REVIVE_SHELLS; do [ "$name" = "$s" ] && return 0; done
+# proc_ppid PID: parent pid (field after the state, once "pid (comm) " is stripped).
+proc_ppid() { sed 's/^.*) //' "/proc/$1/stat" 2>/dev/null | awk '{print $2}'; }
+# proc_is_descendant PID ANCESTOR: walk up the parent chain.
+proc_is_descendant() {
+	local p=$1
+	while [ -n "$p" ] && [ "$p" -gt 1 ] 2>/dev/null; do
+		[ "$p" = "$2" ] && return 0
+		p=$(proc_ppid "$p")
+	done
 	return 1
 }
 boot_id() { cat /proc/sys/kernel/random/boot_id 2>/dev/null || echo unknown; }
@@ -115,6 +119,16 @@ tmux_cmd() { command tmux "${AI_REVIVE_TMUX_ARGS[@]}" "$@"; }
 has_server() { tmux_cmd list-sessions >/dev/null 2>&1; }
 server_pid() { tmux_cmd display -p '#{pid}' 2>/dev/null; }
 tmux_version() { tmux_cmd display -p '#{version}' 2>/dev/null || command tmux -V | awk '{print $2}'; }
+# pane_idle PANE: the pane's root process (the shell tmux started) has no children, i.e. it sits
+# at its prompt. Works for any shell and is false while byobu-shell is still printing its motd.
+pane_idle() {
+	local pid
+	pid=$(tmux_cmd display -p -t "$1" '#{pane_pid}' 2>/dev/null) || return 1
+	[ -n "$pid" ] && [ -z "$(children_of "$pid")" ]
+}
+# The restore lock: held (flock) by a running restore, released by the kernel however it ends.
+restore_lock_file() { printf '%s/restore.lock' "$(runtime_dir)"; }
+restore_in_progress() { ! flock -n "$(restore_lock_file)" true 2>/dev/null; }
 # wait_for_server SECONDS: poll until a server with at least one session answers.
 wait_for_server() {
 	local n=$(( ${1:-5} * 10 ))

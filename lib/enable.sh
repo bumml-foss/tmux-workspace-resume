@@ -148,7 +148,13 @@ cmd_status() {
 		echo "tmux server:   pid $spid, $(tmux_cmd list-sessions -F x | wc -l) session(s), $(tmux_cmd list-panes -a -F "#{pane_id}" | sort -u | wc -l) pane(s)"
 		echo "hooks:         $(tmux_cmd show-hooks -g 2>/dev/null | grep -c "\[$AI_REVIVE_HOOK_INDEX\]") of $(wc -w <<< "$AI_REVIVE_HOOKS") installed"
 		marker=$(runtime_dir)/restored-$spid
-		[ -e "$marker" ] && echo "auto-restore:  ran for this server" || echo "auto-restore:  not run for this server"
+		if [ -e "$marker" ]; then
+			echo "auto-restore:  ran for this server"
+		elif save_restore_pending; then
+			echo "auto-restore:  not run for this server; the snapshot is from a previous boot, so saves are held until ai-revive restore runs"
+		else
+			echo "auto-restore:  not run for this server"
+		fi
 	else
 		echo "tmux server:   not running"
 	fi

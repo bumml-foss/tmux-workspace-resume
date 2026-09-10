@@ -8,8 +8,9 @@ id, ssh, whitelist). Usage, layout and workflows: `README.md`. Plain bash + jq, 
 - **Never write `default-command` or `default-shell` into anything `enable` touches**, not even
   in a comment: `/usr/bin/byobu` greps the user's `.tmux.conf` for those strings and changes how
   it launches. `make lint` fails if `lib/enable.sh` contains them.
-- **Never write a blank or empty snapshot over a richer one.** `save_now` keeps `last.json` when
-  the server is the freshly started one-window placeholder, and never writes zero panes.
+- **Never overwrite a previous-boot snapshot before a restore had its chance.** `save_now` refuses
+  while `last.json` carries another boot id and no `restored-<server pid>` marker exists (both
+  `restore --auto` and a manual `restore` write it); `--force` overrides. Never write zero panes.
 - **Tests never touch the developer's own tmux server, byobu config or systemd.** Every test
   sources `tests/lib/harness.sh`: private socket, temp HOME/XDG dirs, `AI_REVIVE_NO_SYSTEMD=1`.
 - **Everything a resumer prints in `cmd` is typed into a shell.** Quote with `shell_quote` /
@@ -51,5 +52,11 @@ make deb-docker                            # package + lintian
 - New panes are split from the newest pane so the pane list order equals the saved index order,
   which is what `select-layout` maps layout cells onto.
 - `claude --resume <id>` refuses to run from a different directory; resumers pass `cwd`.
+- "Is the pane at its prompt" is `pane_idle` (the pane's root process has no children), never a
+  list of shell names: it works for any shell and is false while byobu-shell prints its motd.
+- The placeholder window is only removed if it is idle at the end of the restore; a program the
+  user started there is kept and moved after the last restored window.
+- A running restore holds `flock` on `restore.lock` (released by the kernel if it dies); saves
+  check `restore_in_progress`, never a pid file.
 - tmux does not scale a layout string to the window size (every pane shrinks by the same absolute
   amount). Always apply saved layouts through `layout_scale` (`lib/layout.sh` explains it).

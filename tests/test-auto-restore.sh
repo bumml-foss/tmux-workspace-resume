@@ -36,16 +36,34 @@ AI_REVIVE_AUTO_RESTORE=always AI_REVIVE_NO_RESTORE=1 "$AR" restore --auto
 AI_REVIVE_AUTO_RESTORE=never "$AR" restore --auto
 assert_eq "$(T list-sessions -F x | wc -l)" 1 "never / NO_RESTORE"
 
-# blank-server guard: a plain save on the fresh server keeps the rich snapshot; --force overwrites
+# previous-boot guard: while the newest snapshot is from another boot and no restore ran on this
+# server, plain saves keep it; --force overwrites; after a restore saves flow again
+jq '.boot_id = "00000000-0000-0000-0000-000000000000"' "$(last_snapshot)" > "$(snapshot_dir)/older.json"
+ln -sfn older.json "$(snapshot_dir)/last.json"
+rm -f "$XDG_RUNTIME_DIR"/ai-revive/restored-*
 "$AR" save
+assert_eq "$(basename "$(last_snapshot)")" "older.json" "save must keep a previous-boot snapshot until a restore ran"
+"$AR" restore --auto                       # AUTO_RESTORE=reboot -> restores the 3 windows, writes the marker
+assert_eq "$(T list-windows -t main -F x | wc -l)" 3 "restored"
+"$AR" save
+[ "$(basename "$(last_snapshot)")" != "older.json" ] || fail "save must proceed once a restore ran"
 assert_json "$(last_snapshot)" '.sessions[0].windows | length == 3'
-"$AR" save --force
-assert_json "$(last_snapshot)" '.sessions[0].windows | length == 1'
-
-# restoring marker: a save during a restore is skipped
-echo $$ > "$XDG_RUNTIME_DIR/ai-revive/restoring"
-T new-window -t 0:
+# a user who deliberately shrinks the workspace gets that saved (no shape heuristics)
+T kill-window -t main:1; T kill-window -t main:2
 "$AR" save
-assert_json "$(last_snapshot)" '.sessions[0].windows | length == 1' "save must skip while restoring"
-rm -f "$XDG_RUNTIME_DIR/ai-revive/restoring"
+assert_json "$(last_snapshot)" '.sessions[0].windows | length == 1' "shrunk workspace saved"
+# --force always writes
+jq '.boot_id = "00000000-0000-0000-0000-000000000000"' "$(last_snapshot)" > "$(snapshot_dir)/older2.json"
+ln -sfn older2.json "$(snapshot_dir)/last.json"; rm -f "$XDG_RUNTIME_DIR"/ai-revive/restored-*
+"$AR" save --force
+[ "$(basename "$(last_snapshot)")" != "older2.json" ] || fail "--force must write"
+
+# restore lock: a save while a restore holds the lock is skipped; a dead restore leaves no trace
+exec 8>"$XDG_RUNTIME_DIR/ai-revive/restore.lock"; flock 8
+T new-window -t main:
+"$AR" save
+assert_json "$(last_snapshot)" '.sessions[0].windows | length == 1' "save must skip while a restore holds the lock"
+flock -u 8; exec 8>&-
+"$AR" save
+assert_json "$(last_snapshot)" '.sessions[0].windows | length == 2' "save proceeds once the lock is gone"
 echo ok

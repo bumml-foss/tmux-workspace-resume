@@ -48,8 +48,9 @@ waits
 seconds and coalesces a burst of events (what the hooks use).
 Without
 .BR \-\-force ,
-a snapshot of a freshly started server (one window, one pane, nothing running) never replaces
-a richer previous snapshot, and no snapshot is written while a restore is in progress.
+nothing is written while a restore is in progress, and a snapshot from a previous boot is kept
+until a restore has run on the current server (so a freshly started server cannot overwrite
+the workspace that is about to be brought back).
 .TP
 .BR restore " [" \-\-dry\-run "] [" \-\-layout\-only "] [" \-\-auto "] [" \fIsnapshot\fR ]
 Rebuild the sessions of
@@ -57,7 +58,9 @@ Rebuild the sessions of
 (default:
 .IR last )
 on the running server. Windows that already exist are skipped, so restoring twice is harmless.
-The placeholder session tmux or byobu created on a fresh start is reused and renamed.
+When the saved session does not exist and the server has a single session, that session is
+reused and renamed so the attached client follows; its single window is removed at the end
+if only an idle shell is in it, otherwise it is kept after the last restored window.
 .B \-\-dry\-run
 prints the plan and touches nothing;
 .B \-\-layout\-only
