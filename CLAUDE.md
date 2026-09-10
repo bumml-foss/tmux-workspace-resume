@@ -9,8 +9,10 @@ id, ssh, whitelist). Usage, layout and workflows: `README.md`. Plain bash + jq, 
   in a comment: `/usr/bin/byobu` greps the user's `.tmux.conf` for those strings and changes how
   it launches. `make lint` fails if `lib/enable.sh` contains them.
 - **Never overwrite a previous-boot snapshot before a restore had its chance.** `save_now` refuses
-  while `last.json` carries another boot id and no `restored-<server pid>` marker exists (both
-  `restore --auto` and a manual `restore` write it); `--force` overrides. Never write zero panes.
+  while `last.json` carries another boot id and no completion marker (`restored-<boot>-<server pid>`)
+  exists. The marker is written when a restore *completes*, or when `restore --auto` decides not
+  to restore; a separate `attempted-` marker stops re-entry. `AUTO_RESTORE=never` and `--force`
+  bypass the guard. Never write zero panes.
 - **Tests never touch the developer's own tmux server, byobu config or systemd.** Every test
   sources `tests/lib/harness.sh`: private socket, temp HOME/XDG dirs, `AI_REVIVE_NO_SYSTEMD=1`.
 - **Everything a resumer prints in `cmd` is typed into a shell.** Quote with `shell_quote` /
@@ -54,8 +56,12 @@ make deb-docker                            # package + lintian
 - `claude --resume <id>` refuses to run from a different directory; resumers pass `cwd`.
 - "Is the pane at its prompt" is `pane_idle` (the pane's root process has no children), never a
   list of shell names: it works for any shell and is false while byobu-shell prints its motd.
-- The placeholder window is only removed if it is idle at the end of the restore; a program the
-  user started there is kept and moved after the last restored window.
+- The server's only session is taken over by the *first* missing saved session (decided once in
+  `restore_from_file`); later missing sessions are created. A pre-existing session's single
+  window is a placeholder only if idle; a taken-over session's always is. The placeholder is
+  removed at the end only if idle and not the pane the restore itself runs in.
+- Snapshot file names carry milliseconds and are written under a directory lock; a settle save
+  is never spawned for `--layout-only` (it would record the scratch server).
 - A running restore holds `flock` on `restore.lock` (released by the kernel if it dies); saves
   check `restore_in_progress`, never a pid file.
 - tmux does not scale a layout string to the window size (every pane shrinks by the same absolute

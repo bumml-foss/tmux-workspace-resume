@@ -30,12 +30,12 @@ emit() { # sessionId cwd name status version
 
 # record_fields FILE: "pid\tprocStart\tsessionId\tcwd\tname\tstatus\tversion" if the record is live.
 record_fields() {
-	local pid ps sid cwd name status version
-	IFS=$'\t' read -r pid ps sid cwd name status version < <(jq -r \
-		'[(.pid|tostring), (.procStart // ""), (.sessionId // ""), (.cwd // ""), (.name // ""), (.status // ""), (.version // "")] | @tsv' "$1" 2>/dev/null) || return 1
+	local pid ps sid cwd name status version US=$'\x1f'
+	IFS=$US read -r pid ps sid cwd name status version < <(jq -r \
+		'[(.pid|tostring), (.procStart // ""), (.sessionId // ""), (.cwd // ""), (.name // ""), (.status // ""), (.version // "")] | join("\u001f")' "$1" 2>/dev/null) || return 1
 	[ -n "$sid" ] && [ -n "$pid" ] && proc_alive "$pid" || return 1
 	if [ -n "$ps" ] && [ "$(proc_starttime "$pid" 2>/dev/null)" != "$ps" ]; then return 1; fi
-	printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$pid" "$ps" "$sid" "$cwd" "$name" "$status" "$version"
+	printf '%s\037%s\037%s\037%s\037%s\037%s\037%s\n' "$pid" "$ps" "$sid" "$cwd" "$name" "$status" "$version"
 }
 
 shopt -s nullglob
@@ -46,7 +46,7 @@ shopt -u nullglob
 if [ ${#records[@]} -gt 0 ]; then
 	while IFS= read -r f; do
 		if line=$(record_fields "$f"); then
-			IFS=$'\t' read -r _ _ sid cwd name status version <<< "$line"
+			IFS=$'\x1f' read -r _ _ sid cwd name status version <<< "$line"
 			emit "$sid" "$cwd" "$name" "$status" "$version"
 			exit 0
 		fi
@@ -56,7 +56,7 @@ fi
 # 2. by process tree: any live record whose process runs under the pane's shell (any depth)
 for f in "${records[@]}"; do
 	if line=$(record_fields "$f"); then
-		IFS=$'\t' read -r rpid _ sid cwd name status version <<< "$line"
+		IFS=$'\x1f' read -r rpid _ sid cwd name status version <<< "$line"
 		if proc_is_descendant "$rpid" "$pane_pid"; then
 			emit "$sid" "$cwd" "$name" "$status" "$version"
 			exit 0

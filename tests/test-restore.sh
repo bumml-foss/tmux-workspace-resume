@@ -63,4 +63,41 @@ kill_server
 fresh_server 0 100 4
 "$AR" restore --layout-only
 assert_eq "$(T list-panes -t big:0 -F x | wc -l)" 2 "panes still created when the layout does not fit"
+# a snapshot with two sessions restores into a fresh server as two sessions (not merged)
+kill_server
+fresh_server alpha
+T new-window -t alpha -n a2
+T new-session -d -s beta -x 200 -y 50 -c "$HOME"
+T new-window -t beta -n b2
+"$AR" save
+assert_json "$(last_snapshot)" '.sessions | length == 2'
+kill_server
+fresh_server 0
+"$AR" restore
+assert_eq "$(T list-sessions -F '#{session_name}' | sort | tr '\n' ' ')" "alpha beta " "both sessions"
+assert_eq "$(T list-windows -t alpha -F x | wc -l)" 2 "alpha windows"
+assert_eq "$(T list-windows -t beta -F x | wc -l)" 2 "beta windows"
+
+# a one-window snapshot whose program is running is not restored twice
+kill_server
+fresh_server solo
+type_in solo:0 "tail -f /dev/null"
+wait_until 5 '[ "$(pane_cmd solo:0)" = tail ]' || fail "tail not running"
+AI_REVIVE_RESUME_COMMANDS="tail" "$AR" save
+kill_server
+fresh_server 0
+"$AR" restore
+wait_until 10 '[ "$(pane_cmd solo:0)" = tail ]' || fail "tail not relaunched"
+"$AR" restore
+sleep 1
+assert_eq "$(T list-panes -s -t solo -F x | wc -l)" 1 "second restore must not duplicate the window"
+
+# `ai-revive restore` typed into the fresh window: no stall, that window is kept, others restored
+kill_server
+fresh_server 0
+start=$(date +%s)
+type_in 0:0 "$AR restore"
+wait_until 20 'T has-session -t solo 2>/dev/null && [ "$(pane_cmd solo:0)" = tail ]' || fail "restore from inside the pane did not finish"
+[ $(( $(date +%s) - start )) -lt 8 ] || fail "restore from inside the pane stalled"
+assert_eq "$(T list-windows -t solo -F '#{window_index}' | tr '\n' ' ')" "0 1 " "restored window plus the one the restore ran in"
 echo "ok"

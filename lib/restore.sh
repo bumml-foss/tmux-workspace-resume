@@ -34,28 +34,33 @@ restore_apply_layout() {
 # restore_session FILE INDEX DRY LAYOUT_ONLY: restores .sessions[INDEX]. Appends
 # "pane_id<US>cwd<US>cmd" lines for the programs to relaunch to the global RESTORE_CMDS array.
 #
-# Where the windows go: into the saved session if it exists; otherwise, when the server has
-# exactly one session (the one tmux/byobu just created, or the one the user is sitting in), that
-# session is renamed so the attached client follows. Its single window, if it has only one pane,
-# is moved out of the way and removed at the end, but only if nothing but an idle shell is in it.
+# Where the windows go: into the saved session if it exists. Otherwise the first missing session
+# takes over the server's only session, when there is exactly one (the one tmux/byobu just
+# created, or the one the user is sitting in): it is renamed so the attached client follows.
+# Further missing sessions are created at their saved size.
+#
+# The placeholder window: a session this restore took over always has one, and a pre-existing
+# session's single one-pane window counts when it is idle (otherwise it is a restored window
+# whose program is running, and touching it would launch that program twice). The placeholder
+# is moved out of the way, and at the end removed if idle, kept after the last window if not.
 restore_session() {
 	local file=$1 i=$2 dry=$3 layout_only=$4 US=$'\x1f'
-	local sess nwin placeholder="" placeholder_idx="" created=0 maxidx nsess cur size
+	local sess nwin placeholder="" placeholder_idx="" placeholder_ours=0 created=0 maxidx size taken=0
 	sess=$(jq -r ".sessions[$i].name" "$file")
 	nwin=$(jq ".sessions[$i].windows | length" "$file")
 	maxidx=$(jq ".sessions[$i].windows | map(.index) | max" "$file")
 	say "session '$sess' ($nwin windows)"
 
 	if ! tmux_cmd has-session -t "=$sess" 2>/dev/null; then
-		nsess=$(tmux_cmd list-sessions -F x 2>/dev/null | wc -l)
-		if [ "$nsess" -eq 1 ]; then
-			cur=$(tmux_cmd list-sessions -F '#{session_name}')
+		if [ -n "$RESTORE_SPARE_SESSION" ]; then
 			if [ "$dry" = 1 ]; then
-				say "  would rename session '$cur' to '$sess'"
+				say "  would rename session '$RESTORE_SPARE_SESSION' to '$sess'"
 			else
-				tmux_cmd rename-session -t "=$cur" "$sess"
-				log_info "reusing session '$cur' as '$sess'"
+				tmux_cmd rename-session -t "=$RESTORE_SPARE_SESSION" "$sess"
+				log_info "reusing session '$RESTORE_SPARE_SESSION' as '$sess'"
 			fi
+			RESTORE_SPARE_SESSION=""
+			taken=1
 		elif [ "$dry" = 1 ]; then
 			say "  would create session '$sess'"
 		else
@@ -63,12 +68,19 @@ restore_session() {
 			[ "${size% *}" -gt 0 ] 2>/dev/null || size="200 50"
 			tmux_cmd new-session -d -s "$sess" -x "${size% *}" -y "${size#* }" >/dev/null
 			log_info "created session '$sess' (${size% *}x${size#* })"
+			taken=1
 		fi
+	elif [ "$RESTORE_SPARE_SESSION" = "$sess" ]; then
+		RESTORE_SPARE_SESSION=""        # pre-existing: its window is a placeholder only if idle
 	fi
-	# a single one-pane window in the target session is the placeholder tmux/byobu started with
 	if [ "$dry" != 1 ] && [ "$(tmux_cmd list-panes -s -t "=$sess" -F x | wc -l)" -eq 1 ]; then
 		IFS=$US read -r placeholder placeholder_idx < <(tmux_cmd display -p -t "=$sess:" "#{window_id}	#{window_index}" | tr '\t' '\037')
-		tmux_cmd move-window -s "$placeholder" -t "=$sess:$((maxidx + 1000))"
+		if [ "$taken" = 1 ] || restore_wait_idle "=$sess:"; then
+			tmux_cmd move-window -s "$placeholder" -t "=$sess:$((maxidx + 1000))"
+			pane_is_ours "$placeholder" && placeholder_ours=1
+		else
+			placeholder=""
+		fi
 	fi
 
 	local w widx wname wauto wlayout _wactive npanes wid last p pcwd pnew cwd0 args pane_ids line new_id old_idx
@@ -87,7 +99,10 @@ restore_session() {
 		else
 			args=(new-window -d -P -F '#{window_id}' -t "=$sess:$widx" -c "$cwd0")
 			[ "$wauto" = false ] && args+=(-n "$wname")
-			wid=$(tmux_cmd "${args[@]}")
+			if ! wid=$(tmux_cmd "${args[@]}" 2>/dev/null); then
+				log_warn "window $widx '$wname': could not create it; skipping"
+				continue
+			fi
 			created=$((created + 1))
 			last=$(tmux_cmd display -p -t "$wid" '#{pane_id}')
 		fi
@@ -97,7 +112,10 @@ restore_session() {
 			pcwd=$(jq -r ".sessions[$i].windows[$w].panes[$p].cwd" "$file")
 			[ -d "$pcwd" ] || { log_warn "window $widx pane $p: directory '$pcwd' is gone, using \$HOME"; pcwd=$HOME; }
 			[ "$dry" = 1 ] && continue
-			last=$(tmux_cmd split-window -d -P -F '#{pane_id}' -t "$last" -c "$pcwd")
+			if ! last=$(tmux_cmd split-window -d -P -F '#{pane_id}' -t "$last" -c "$pcwd" 2>/dev/null); then
+				log_warn "window $widx: could not create pane $p (window too small?); restoring the rest"
+				break
+			fi
 			tmux_cmd select-layout -t "$wid" tiled >/dev/null
 		done
 		if [ "$dry" != 1 ]; then
@@ -131,6 +149,10 @@ restore_session() {
 		if [ -n "$placeholder" ]; then
 			if [ "$created" -eq 0 ]; then
 				tmux_cmd move-window -s "$placeholder" -t "=$sess:$placeholder_idx" 2>/dev/null || true
+			elif [ "$placeholder_ours" = 1 ]; then
+				# this restore was typed into that window; killing it would kill the restore
+				tmux_cmd move-window -s "$placeholder" -t "=$sess:$((maxidx + 1))" 2>/dev/null || true
+				log_info "kept the window the restore was started from as window $((maxidx + 1))"
 			elif restore_wait_idle "$placeholder"; then
 				# byobu-shell may still be printing its motd, hence the bounded wait
 				tmux_cmd kill-window -t "$placeholder" 2>/dev/null || true
@@ -162,6 +184,11 @@ restore_from_file() {
 	local file=$1 dry=$2 layout_only=$3 nsess i
 	RESTORE_CMDS=()
 	RESTORE_DRY=$dry
+	# the server's only session (if it has exactly one) may be taken over by the first missing session
+	RESTORE_SPARE_SESSION=""
+	if [ "$(tmux_cmd list-sessions -F x 2>/dev/null | wc -l)" -eq 1 ]; then
+		RESTORE_SPARE_SESSION=$(tmux_cmd list-sessions -F '#{session_name}')
+	fi
 	if [ "$dry" != 1 ]; then
 		# held until this process exits; save_now skips while it is held
 		exec 8>"$(restore_lock_file)"
@@ -173,9 +200,9 @@ restore_from_file() {
 	done
 	if [ "$dry" != 1 ]; then
 		restore_send_commands
-		touch "$(runtime_dir)/restored-$(server_pid)"
+		touch "$(restore_marker)"
 		flock -u 8
-		if [ "${RESTORE_SETTLE_S:-0}" -gt 0 ] 2>/dev/null; then
+		if [ "$layout_only" != 1 ] && [ "${RESTORE_SETTLE_S:-0}" -gt 0 ] 2>/dev/null; then
 			setsid -f bash -c "sleep $RESTORE_SETTLE_S; exec \"\$0\" save --quiet" "$AI_REVIVE_BIN" </dev/null >/dev/null 2>&1 || true
 		fi
 		log_info "restored from $file"
@@ -197,16 +224,19 @@ cmd_restore() {
 	done
 	file=$(snapshot_resolve "$snap") || return 1
 	if [ $auto -eq 1 ]; then
-		[ "${AI_REVIVE_NO_RESTORE:-0}" = 1 ] && { log_info "AI_REVIVE_NO_RESTORE is set; not restoring"; return 0; }
 		[ "$AUTO_RESTORE" = never ] && { log_debug "AUTO_RESTORE=never"; return 0; }
 		wait_for_server 5 || { log_info "no tmux server appeared; nothing to restore into"; return 0; }
-		local spid marker
-		spid=$(server_pid)
-		marker=$(runtime_dir)/restored-$spid
-		[ -e "$marker" ] && { log_debug "already ran for server $spid"; return 0; }
-		touch "$marker"
+		# one attempt per server; a decision not to restore also lets saves proceed (completion marker)
+		[ -e "$(restore_attempt_marker)" ] && { log_debug "already ran for this server"; return 0; }
+		touch "$(restore_attempt_marker)"
+		if [ "${AI_REVIVE_NO_RESTORE:-0}" = 1 ]; then
+			log_info "AI_REVIVE_NO_RESTORE is set; not restoring"
+			touch "$(restore_marker)"
+			return 0
+		fi
 		if [ "$AUTO_RESTORE" = reboot ] && [ "$(jq -r '.boot_id // ""' "$file")" = "$(boot_id)" ]; then
 			log_info "snapshot is from this boot; not auto-restoring (AUTO_RESTORE=reboot)"
+			touch "$(restore_marker)"
 			return 0
 		fi
 		quiet_on

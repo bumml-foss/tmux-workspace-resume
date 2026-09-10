@@ -28,8 +28,10 @@ the pid still belongs to that process, and emits
 .B claude \-\-resume
 .I session-id
 with the conversation's directory. Two Claude panes in the same directory therefore come back as
-two different conversations. A Claude without a record (started seconds ago) falls back to
-.BR "claude \-\-continue" .
+two different conversations. A Claude without a record (started seconds ago, or an older
+version) is relaunched with the command line it was started with, which starts a new
+conversation rather than guessing one with
+.BR \-\-continue .
 .TP
 .B 20-ssh
 Claims a pane whose foreground command is

@@ -5,22 +5,27 @@
 
 snapshot_dir() { printf '%s' "$(state_dir)/snapshots"; }
 
-# snapshot_write: JSON on stdin -> validated file on disk; prints the path.
+# snapshot_write: JSON on stdin -> validated file on disk; prints the path. Names carry
+# milliseconds so they are unique and sort by age; the directory lock serialises concurrent
+# savers (timer, hook, key binding, settle save).
 snapshot_write() {
-	local dir ts final tmp n=0
+	local dir final tmp
 	dir=$(snapshot_dir)
 	mkdir -p "$dir"
-	ts=$(date +%Y%m%dT%H%M%S)
-	final=$dir/$ts.json
-	while [ -e "$final" ]; do n=$((n + 1)); final=$dir/$ts-$n.json; done
-	tmp=$final.tmp
+	exec 7>"$dir/.lock"
+	flock 7
+	final=$dir/$(date +%Y%m%dT%H%M%S.%3N).json
+	while [ -e "$final" ]; do sleep 0.01; final=$dir/$(date +%Y%m%dT%H%M%S.%3N).json; done
+	tmp=$(mktemp "$dir/.tmp.XXXXXX")
 	if ! jq -e . > "$tmp"; then
 		rm -f "$tmp"
+		flock -u 7
 		die "refusing to write an invalid snapshot"
 	fi
 	mv "$tmp" "$final"
 	ln -sfn "$(basename "$final")" "$dir/last.json"
 	snapshot_prune
+	flock -u 7
 	printf '%s' "$final"
 }
 

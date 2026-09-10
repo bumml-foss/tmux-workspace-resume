@@ -39,7 +39,7 @@ wait_until 5 '[ -n "$(cat "$FAKE_LOG"/claude.*.args 2>/dev/null)" ]' || fail "cl
 grep -qx "$id" "$FAKE_LOG"/claude.*.args || fail "claude was not resumed with $id"
 assert_eq "$(T display -p -t 0:1.0 '#{pane_current_path}')" "$HOME/work" "pane cwd"
 wait_until 5 '[ "$(T show-hooks -g | grep -c "\[900\]")" = 10 ]' || fail "hooks not installed at server start"
-[ -e "$XDG_RUNTIME_DIR/ai-revive/restored-$(T display -p '#{pid}')" ] || fail "restored marker missing"
+ls "$XDG_RUNTIME_DIR"/ai-revive/restored-*-"$(T display -p '#{pid}')" >/dev/null 2>&1 || fail "restored marker missing"
 
 # 3. a second client attaching through a grouped session (what byobu does) restores nothing again
 T new-session -d -t 0 -s 0-2

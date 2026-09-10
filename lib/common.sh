@@ -121,11 +121,25 @@ server_pid() { tmux_cmd display -p '#{pid}' 2>/dev/null; }
 tmux_version() { tmux_cmd display -p '#{version}' 2>/dev/null || command tmux -V | awk '{print $2}'; }
 # pane_idle PANE: the pane's root process (the shell tmux started) has no children, i.e. it sits
 # at its prompt. Works for any shell and is false while byobu-shell is still printing its motd.
+# Our own process chain does not count (an `ai-revive restore` typed into that very pane).
 pane_idle() {
+	local pid child
+	pid=$(tmux_cmd display -p -t "$1" '#{pane_pid}' 2>/dev/null) || return 1
+	[ -n "$pid" ] || return 1
+	for child in $(children_of "$pid"); do
+		proc_is_descendant "$$" "$child" || return 1
+	done
+	return 0
+}
+# pane_is_ours PANE: this process runs inside that pane.
+pane_is_ours() {
 	local pid
 	pid=$(tmux_cmd display -p -t "$1" '#{pane_pid}' 2>/dev/null) || return 1
-	[ -n "$pid" ] && [ -z "$(children_of "$pid")" ]
+	[ -n "$pid" ] && proc_is_descendant "$$" "$pid"
 }
+# restore_marker: exists once a restore has completed on the running server (this boot).
+restore_marker() { printf '%s/restored-%s-%s' "$(runtime_dir)" "$(boot_id)" "$(server_pid)"; }
+restore_attempt_marker() { printf '%s/attempted-%s-%s' "$(runtime_dir)" "$(boot_id)" "$(server_pid)"; }
 # The restore lock: held (flock) by a running restore, released by the kernel however it ends.
 restore_lock_file() { printf '%s/restore.lock' "$(runtime_dir)"; }
 restore_in_progress() { ! flock -n "$(restore_lock_file)" true 2>/dev/null; }

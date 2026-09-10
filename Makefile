@@ -33,7 +33,7 @@ install: ## install under $(DESTDIR)$(PREFIX) (default /usr/local)
 	install -m 0644 lib/*.sh "$(DESTDIR)$(SHAREDIR)/lib/"
 	install -m 0755 resumers/* "$(DESTDIR)$(SHAREDIR)/resumers/"
 	install -m 0644 systemd/user/* "$(DESTDIR)$(SHAREDIR)/systemd/user/"
-	install -m 0644 systemd/user/* "$(DESTDIR)$(UNITDIR)/"
+	for u in systemd/user/*; do sed -E 's|^(Exec(Start\|Stop)=)[^ ]*ai-revive |\1$(PREFIX)/bin/ai-revive |' "$$u" > "$(DESTDIR)$(UNITDIR)/$$(basename "$$u")"; chmod 0644 "$(DESTDIR)$(UNITDIR)/$$(basename "$$u")"; done
 	install -m 0644 man/ai-revive.1 man/byobu-ai-revive.1 "$(DESTDIR)$(MANDIR)/man1/"
 	install -m 0644 man/ai-revive-resumers.7 "$(DESTDIR)$(MANDIR)/man7/"
 

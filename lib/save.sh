@@ -70,12 +70,13 @@ save_collect() {
 # chance on this server yet (restore writes the marker). Overwriting it now would lose the
 # workspace that is about to be brought back.
 save_restore_pending() {
-	local last spid
+	local last
+	[ "${AUTO_RESTORE:-reboot}" != never ] || return 1
 	last=$(snapshot_dir)/last.json
 	[ -e "$last" ] || return 1
 	[ "$(jq -r '.boot_id // ""' "$last" 2>/dev/null)" != "$(boot_id)" ] || return 1
-	spid=$(server_pid) || return 1
-	[ ! -e "$(runtime_dir)/restored-$spid" ]
+	has_server || return 1
+	[ ! -e "$(restore_marker)" ]
 }
 
 # save_now [--force]: write a snapshot unless a guard says the moment is wrong.
