@@ -35,6 +35,11 @@ id, ssh, whitelist). Usage, layout and workflows: `README.md`. Plain bash + jq, 
 - Match Claude panes on `@window.%pane` only; the session-name prefix in
   `~/.claude/sessions/<pid>.json` goes stale when byobu re-attaches.
 
+- Agent resumers without a pane registry (codex, gemini, copilot) use `lib/agents.sh`:
+  `agent_find_process` (regex over the command line, so node-based CLIs are found),
+  `agent_pick` (session created soonest after the process started, else newest modified) and
+  `agent_emit`. Their fakes in `tests/fakes/` must keep writing the tools' documented files.
+
 ## Verifying a change
 
 ```bash

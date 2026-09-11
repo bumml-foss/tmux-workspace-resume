@@ -1,10 +1,10 @@
 # ai-revive
 
 Your tmux/byobu workspace survives a reboot: every session, window, pane, working directory and
-layout comes back, and so does the program that was running in each pane. Claude Code
-conversations are resumed by session id (two Claude panes in one directory stay two different
-conversations), ssh connections are re-established with their original command line, and any
-other program can be whitelisted. Works as a plain tmux plugin (TPM compatible) and integrates
+layout comes back, and so does the program that was running in each pane. AI coding agents are
+resumed by session id: Claude Code, OpenAI Codex CLI, Gemini CLI and GitHub Copilot CLI (two
+agent panes in one directory stay two different conversations). ssh connections are
+re-established with their original command line, and any other program can be whitelisted. Works as a plain tmux plugin (TPM compatible) and integrates
 with byobu on Ubuntu. GPL-3.0-or-later.
 
 | What | Where |
@@ -12,12 +12,12 @@ with byobu on Ubuntu. GPL-3.0-or-later.
 | `bin/ai-revive` | the CLI: `save`, `restore`, `list`, `status`, `enable`, `disable`, `resumers`, `shutdown`, `reboot` |
 | `bin/byobu-ai-revive` | same CLI, byobu flavour (acts on the byobu config dir) |
 | `ai-revive.tmux` | plugin entry point run at tmux server start: installs hooks + key bindings, starts the auto-restore |
-| `lib/` | bash libraries (save, restore, resumer dispatch, enable, config, snapshot files) |
-| `resumers/` | `10-claude`, `20-ssh`, `90-whitelist` — see `man ai-revive-resumers` for writing your own |
+| `lib/` | bash libraries (save, restore, resumer dispatch, enable, config, snapshot files, layout scaling, agent helpers) |
+| `resumers/` | `10-claude`, `20-ssh`, `30-codex`, `40-gemini`, `50-copilot`, `90-whitelist` — see `man ai-revive-resumers` for writing your own |
 | `systemd/user/` | periodic save timer and best-effort shutdown save |
 | `examples/config` | every setting with its default |
 | `man/` | `ai-revive(1)`, `ai-revive-resumers(7)` |
-| `tests/` | `run-tests.sh` runs `test-*.sh`, each on a private tmux server with fake `claude`/`ssh` |
+| `tests/` | `run-tests.sh` runs `test-*.sh`, each on a private tmux server with fake `claude`/`codex`/`gemini`/`copilot`/`ssh` executables that write the real tools' session files |
 | `debian/` | packaging; `make deb-docker` builds the `.deb` in a clean `ubuntu:24.04` |
 
 ## Install
@@ -69,6 +69,18 @@ make test          # tests/run-tests.sh — private tmux servers only, never you
 make deb-docker    # dist/ai-revive_<version>_all.deb built and lintian-checked in ubuntu:24.04
 make install PREFIX=~/.local   # or DESTDIR=... PREFIX=/usr for packaging
 ```
+
+## How agents are matched to their sessions
+
+Claude Code records the tmux pane it runs in, so its resumer is exact. Codex, Gemini and Copilot
+do not, so their resumers find the agent's process under the pane's shell and identify the
+session by, in order: a session file the process holds open; the session created soonest after
+the process started in the process's directory (or, for a resumed session, the most recently
+modified one); and as a last resort the command line the agent was started with. Two agents
+started in the same directory within the same second cannot be told apart. These three were
+written from the tools' published formats and tested against fakes that reproduce those
+formats, not against the real binaries; `ai-revive resumers probe %<pane>` shows what a live
+pane would get.
 
 ## Adding a resumer
 

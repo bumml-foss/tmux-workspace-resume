@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+# ai-revive resumer: GitHub Copilot CLI. Relaunches the session that was open in the pane with
+# `copilot --resume <session-id>`.
+#
+# Copilot CLI keeps each session in ~/.copilot/session-state/<uuid>/ (workspace.yaml metadata,
+# events.jsonl while the session is active). The session is identified by a file under such a
+# directory the process holds open, else by the newest session directory touched after the
+# process started whose workspace.yaml names the process's directory (when it records one).
+# Written from the public format, not tested against the real binary.
+# SPDX-License-Identifier: GPL-3.0-or-later
+set -euo pipefail
+# shellcheck source=../lib/common.sh
+. "${AI_REVIVE_HOME:?}/lib/common.sh"
+# shellcheck source=../lib/agents.sh
+. "$AI_REVIVE_HOME/lib/agents.sh"
+
+case ${1:-} in
+	info) echo "GitHub Copilot CLI: resume the session that was open in the pane (copilot --resume <session-id>)"; exit 0 ;;
+	probe) ;;
+	*) echo "usage: $0 probe|info" >&2; exit 2 ;;
+esac
+
+RE='(^|[/ ])copilot( |$)|@github/copilot|copilot-cli'
+dir=${COPILOT_HOME:-$HOME/.copilot}/session-state
+pid=$(agent_find_process "${AI_REVIVE_PANE_PID:?}" "$RE") || exit 1
+cwd=$(proc_cwd "$pid")
+UUID='[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}'
+
+# 1. a file under a session directory the process holds open
+while IFS= read -r f; do
+	case $f in "$dir"/*) ;; *) continue ;; esac
+	id=${f#"$dir"/}; id=${id%%/*}
+	printf '%s' "$id" | grep -qE "^$UUID$" || continue
+	agent_emit copilot "copilot --resume $(shell_quote "$id")" "${cwd:-$AI_REVIVE_CWD}" "$id" open-file
+	exit 0
+done < <(proc_open_paths "$pid")
+
+# 2. the session this process began (created soonest after its start) or resumed (newest),
+#    among the session directories touched since it started; workspace.yaml's cwd, when
+#    recorded, must be the process's directory
+if [ -d "$dir" ] && start=$(proc_start_epoch "$pid"); then
+	best=$(for d in "$dir"/*/; do
+		d=${d%/}; id=$(basename "$d")
+		printf '%s' "$id" | grep -qE "^$UUID$" || continue
+		created=""
+		if [ -r "$d/workspace.yaml" ]; then
+			recorded=$(sed -n -E 's/^(cwd|working_directory|workingDirectory):[[:space:]]*"?([^"]*)"?[[:space:]]*$/\2/p' "$d/workspace.yaml" | head -1)
+			[ -z "$recorded" ] || [ "$recorded" = "$cwd" ] || continue
+			created=$(agent_epoch "$(sed -n -E 's/^(created_at|createdAt|created):[[:space:]]*"?([^"]*)"?[[:space:]]*$/\2/p' "$d/workspace.yaml" | head -1)")
+		fi
+		mtime=$(file_mtime "$d")
+		[ -e "$d/events.jsonl" ] && [ "$(file_mtime "$d/events.jsonl")" -gt "$mtime" ] && mtime=$(file_mtime "$d/events.jsonl")
+		printf '%s\t%s\t%s\n' "$created" "$mtime" "$d"
+	done | agent_pick "$start") || best=""
+	if [ -n "$best" ]; then
+		id=$(basename "$best")
+		agent_emit copilot "copilot --resume $(shell_quote "$id")" "${cwd:-$AI_REVIVE_CWD}" "$id" started-after-process
+		exit 0
+	fi
+fi
+
+# 3. no session found: relaunch what was typed (a new session)
+args=$(agent_args_after "$pid" "$RE")
+agent_emit copilot "copilot${args:+ $args}" "${cwd:-$AI_REVIVE_CWD}" "" argv

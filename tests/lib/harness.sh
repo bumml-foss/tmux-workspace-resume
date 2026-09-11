@@ -27,8 +27,8 @@ export AI_REVIVE_LOG_LEVEL=debug
 
 export FAKE_LOG=$TMP/fakelog
 mkdir -p "$FAKE_LOG" "$TMP/bin"
-cp "$REPO/tests/fakes/claude" "$TMP/bin/claude"
-chmod +x "$TMP/bin/claude"
+cp "$REPO"/tests/fakes/* "$TMP/bin/"
+chmod +x "$TMP"/bin/*
 ln -s "$(command -v tail)" "$TMP/bin/ssh"
 export PATH=$TMP/bin:$PATH
 # tmux starts login shells; Debian's /etc/profile resets PATH, so the temp HOME re-adds the fakes.

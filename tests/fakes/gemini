@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# Fake Gemini CLI: records its arguments, writes a chat file the way the real one does
+# (~/.gemini/tmp/<sha256 of cwd>/chats/session-<time>-<id8>.jsonl with a sessionId in the first
+# line) and blocks. FAKE_NODE_STYLE=1 blocks under a node-like argv0 (".../gemini-cli/dist/index.js").
+set -euo pipefail
+: "${FAKE_LOG:?}"
+printf '%s\n' "$@" > "$FAKE_LOG/gemini.$$.args"
+sid="" prev=""
+for a in "$@"; do
+	if [ "$prev" = --resume ] || [ "$prev" = -r ]; then sid=$a; fi
+	prev=$a
+done
+[ -n "$sid" ] || sid=$(cat /proc/sys/kernel/random/uuid)
+if [ "${FAKE_NO_SESSION:-0}" != 1 ]; then
+	hash=$(printf '%s' "$PWD" | sha256sum | cut -d' ' -f1)
+	d=$HOME/.gemini/tmp/$hash/chats
+	mkdir -p "$d"
+	f=$d/session-$(date +%Y-%m-%dT%H-%M)-${sid:0:8}.jsonl
+	jq -cn --arg id "$sid" --arg hash "$hash" --arg ts "$(date -Is)" \
+		'{sessionId: $id, projectHash: $hash, startTime: $ts, lastUpdated: $ts, kind: "main"}' > "$f"
+fi
+if [ "${FAKE_NODE_STYLE:-0}" = 1 ]; then
+	exec -a /usr/lib/node_modules/@google/gemini-cli/dist/index.js sleep infinity
+fi
+exec -a gemini sleep infinity

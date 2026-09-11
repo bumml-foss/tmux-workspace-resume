@@ -41,6 +41,24 @@ and whose shell has an
 child; emits that child's exact command line. Transports started by git, scp or rsync are not
 direct children of the shell and are left alone.
 .TP
+.BR 30-codex ", " 40-gemini ", " 50-copilot
+OpenAI Codex CLI, Google Gemini CLI and GitHub Copilot CLI do not record their tmux pane. These
+resumers find the agent's process under the pane's shell (also when it runs as
+.BR node " <script>" )
+and identify its session by, in order: a session file the process holds open
+.RI ( ~/.codex/sessions/.../rollout-*.jsonl ,
+.IR ~/.gemini/tmp/<hash>/chats/session-* ,
+.IR ~/.copilot/session-state/<uuid>/ );
+the session created soonest after the process started in the process's directory, or for a
+resumed session the most recently modified one; and, failing that, the command line the agent
+was started with. They emit
+.BR "codex resume " <id> ,
+.BR "gemini \-\-resume " <id>
+and
+.BR "copilot \-\-resume " <id> .
+Two agents started in one directory within the same second cannot be told apart. Written from
+the published formats, not verified against the real binaries.
+.TP
 .B 90-whitelist
 Claims a pane whose shell has a child named in the
 .B RESUME_COMMANDS
@@ -79,7 +97,15 @@ can be sourced for helpers such as
 .BR shell_quote ,
 .B proc_cmdline_to_shell
 and
-.BR children_of .
+.BR children_of ,
+and
+.I $AI_REVIVE_HOME/lib/agents.sh
+for
+.BR agent_find_process ,
+.B agent_pick
+and
+.B agent_emit
+(see the shipped agent resumers).
 .PP
 To claim the pane the resumer exits 0 and prints one JSON object:
 .PP

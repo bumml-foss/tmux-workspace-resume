@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+# ai-revive resumer: Google Gemini CLI. Relaunches the session that was open in the pane with
+# `gemini --resume <session-id>`.
+#
+# Gemini CLI records sessions in ~/.gemini/tmp/<sha256 of the project root>/chats/session-*.json[l]
+# (a JSON object, or JSONL whose first line is the metadata) with a "sessionId" field. The
+# session is identified by a chat file the process holds open, else by the newest chat file
+# created after the process started in the project directory of the process's cwd (or its git
+# root). Written from the public format, not tested against the real binary.
+# SPDX-License-Identifier: GPL-3.0-or-later
+set -euo pipefail
+# shellcheck source=../lib/common.sh
+. "${AI_REVIVE_HOME:?}/lib/common.sh"
+# shellcheck source=../lib/agents.sh
+. "$AI_REVIVE_HOME/lib/agents.sh"
+
+case ${1:-} in
+	info) echo "Gemini CLI: resume the session that was open in the pane (gemini --resume <session-id>)"; exit 0 ;;
+	probe) ;;
+	*) echo "usage: $0 probe|info" >&2; exit 2 ;;
+esac
+
+RE='(^|[/ ])gemini( |$)|gemini-cli'
+dir=${GEMINI_CLI_HOME:-$HOME}/.gemini/tmp
+pid=$(agent_find_process "${AI_REVIVE_PANE_PID:?}" "$RE") || exit 1
+cwd=$(proc_cwd "$pid")
+
+chat_id() { head -c 65536 "$1" 2>/dev/null | head -n 1 | jq -r '.sessionId // empty' 2>/dev/null; }
+sha() { printf '%s' "$1" | sha256sum | cut -d' ' -f1; }
+
+# 1. a chat file the process holds open
+while IFS= read -r f; do
+	case $f in "$dir"/*/chats/session-*.json|"$dir"/*/chats/session-*.jsonl) ;; *) continue ;; esac
+	id=$(chat_id "$f"); [ -n "$id" ] || continue
+	agent_emit gemini "gemini --resume $(shell_quote "$id")" "${cwd:-$AI_REVIVE_CWD}" "$id" open-file
+	exit 0
+done < <(proc_open_paths "$pid")
+
+# 2. the chat this process began (created soonest after its start) or resumed (newest), in the
+#    project dir of the process's cwd or of its git root
+chat_created() { head -c 65536 "$1" 2>/dev/null | head -n 1 | jq -r '.startTime // empty' 2>/dev/null; }
+if [ -d "$dir" ] && [ -n "$cwd" ] && start=$(proc_start_epoch "$pid"); then
+	candidates=("$dir/$(sha "$cwd")")
+	root=$(git -C "$cwd" rev-parse --show-toplevel 2>/dev/null || true)
+	[ -n "$root" ] && [ "$root" != "$cwd" ] && candidates+=("$dir/$(sha "$root")")
+	for d in "${candidates[@]}"; do
+		[ -d "$d/chats" ] || continue
+		best=$(for f in "$d"/chats/session-*.json "$d"/chats/session-*.jsonl; do
+			[ -e "$f" ] || continue
+			printf '%s\t%s\t%s\n' "$(agent_epoch "$(chat_created "$f")")" "$(file_mtime "$f")" "$f"
+		done | agent_pick "$start") || best=""
+		if [ -n "$best" ] && id=$(chat_id "$best") && [ -n "$id" ]; then
+			agent_emit gemini "gemini --resume $(shell_quote "$id")" "$cwd" "$id" started-after-process
+			exit 0
+		fi
+	done
+fi
+
+# 3. no session found: relaunch what was typed (a new session)
+args=$(agent_args_after "$pid" "$RE")
+agent_emit gemini "gemini${args:+ $args}" "${cwd:-$AI_REVIVE_CWD}" "" argv

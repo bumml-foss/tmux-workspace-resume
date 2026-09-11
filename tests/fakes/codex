@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# Fake Codex CLI: records its arguments, writes a rollout file the way the real one does
+# ($CODEX_HOME/sessions/YYYY/MM/DD/rollout-<time>-<uuid>.jsonl with a session_meta first line
+# carrying the cwd), and blocks as a process named codex. FAKE_NO_SESSION=1 skips the file.
+set -euo pipefail
+: "${FAKE_LOG:?}"
+printf '%s\n' "$@" > "$FAKE_LOG/codex.$$.args"
+sid=""
+[ "${1:-}" = resume ] && [ -n "${2:-}" ] && sid=$2
+[ -n "$sid" ] || sid=$(cat /proc/sys/kernel/random/uuid)
+if [ "${FAKE_NO_SESSION:-0}" != 1 ]; then
+	d=${CODEX_HOME:-$HOME/.codex}/sessions/$(date +%Y/%m/%d)
+	mkdir -p "$d"
+	f=$d/rollout-$(date +%Y-%m-%dT%H-%M-%S)-$sid.jsonl
+	jq -cn --arg id "$sid" --arg cwd "$PWD" --arg ts "$(date -Is)" \
+		'{timestamp: $ts, type: "session_meta", payload: {id: $id, timestamp: $ts, cwd: $cwd, originator: "fake", cli_version: "0.0.0"}}' > "$f"
+	echo '{"type":"response_item","payload":{}}' >> "$f"
+fi
+exec -a codex sleep infinity

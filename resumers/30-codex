@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+# ai-revive resumer: OpenAI Codex CLI. Relaunches the session that was open in the pane with
+# `codex resume <session-id>`.
+#
+# Codex writes each session to $CODEX_HOME/sessions/YYYY/MM/DD/rollout-<time>-<uuid>.jsonl whose
+# first line is {"type":"session_meta","payload":{"id":"<uuid>","cwd":"/dir",...}}. The session
+# is identified by a rollout file the process holds open, else by the newest rollout created
+# after the process started whose cwd is the process's directory. Written from the public
+# format, not tested against the real binary: `ai-revive resumers probe %<pane>` shows the result.
+# SPDX-License-Identifier: GPL-3.0-or-later
+set -euo pipefail
+# shellcheck source=../lib/common.sh
+. "${AI_REVIVE_HOME:?}/lib/common.sh"
+# shellcheck source=../lib/agents.sh
+. "$AI_REVIVE_HOME/lib/agents.sh"
+
+case ${1:-} in
+	info) echo "Codex CLI: resume the session that was open in the pane (codex resume <session-id>)"; exit 0 ;;
+	probe) ;;
+	*) echo "usage: $0 probe|info" >&2; exit 2 ;;
+esac
+
+RE='(^|[/ ])codex(-[^ /]*)?( |$)'
+dir=${CODEX_HOME:-$HOME/.codex}/sessions
+pid=$(agent_find_process "${AI_REVIVE_PANE_PID:?}" "$RE") || exit 1
+cwd=$(proc_cwd "$pid")
+
+rollout_id() { head -n 1 "$1" 2>/dev/null | jq -r '.payload.id // .payload.session_id // empty' 2>/dev/null; }
+rollout_cwd() { head -n 1 "$1" 2>/dev/null | jq -r '.payload.cwd // empty' 2>/dev/null; }
+
+# 1. a rollout file the process holds open
+while IFS= read -r f; do
+	case $f in "$dir"/*/rollout-*.jsonl) ;; *) continue ;; esac
+	id=$(rollout_id "$f"); [ -n "$id" ] || continue
+	agent_emit codex "codex resume $(shell_quote "$id")" "${cwd:-$AI_REVIVE_CWD}" "$id" open-file
+	exit 0
+done < <(proc_open_paths "$pid")
+
+# 2. the rollout this process began (created soonest after its start) or resumed (newest),
+#    among those in the process's directory touched since it started
+if [ -d "$dir" ] && start=$(proc_start_epoch "$pid"); then
+	best=$(while IFS= read -r f; do
+		[ "$(rollout_cwd "$f")" = "$cwd" ] || continue
+		printf '%s\t%s\t%s\n' "$(agent_epoch "$(head -n 1 "$f" | jq -r '.payload.timestamp // .timestamp // empty' 2>/dev/null)")" "$(file_mtime "$f")" "$f"
+	done < <(find "$dir" -type f -name 'rollout-*.jsonl' -newermt "@$((start - 5))" 2>/dev/null) | agent_pick "$start") || best=""
+	if [ -n "$best" ] && id=$(rollout_id "$best") && [ -n "$id" ]; then
+		agent_emit codex "codex resume $(shell_quote "$id")" "$cwd" "$id" started-after-process
+		exit 0
+	fi
+fi
+
+# 3. no session found: relaunch what was typed (a new session)
+args=$(agent_args_after "$pid" "$RE")
+agent_emit codex "codex${args:+ $args}" "${cwd:-$AI_REVIVE_CWD}" "" argv

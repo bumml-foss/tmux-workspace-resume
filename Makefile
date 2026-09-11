@@ -8,7 +8,7 @@ MANDIR   = $(PREFIX)/share/man
 VERSION := $(shell cat VERSION)
 
 SH_FILES = ai-revive.tmux bin/ai-revive bin/byobu-ai-revive $(wildcard lib/*.sh) $(wildcard resumers/*) \
-           tests/run-tests.sh $(wildcard tests/lib/*.sh) tests/fakes/claude $(wildcard tests/test-*.sh)
+           tests/run-tests.sh $(wildcard tests/lib/*.sh) $(wildcard tests/fakes/*) $(wildcard tests/test-*.sh)
 
 .DEFAULT_GOAL := help
 .PHONY: help lint test install uninstall deb deb-docker deb-deps clean
