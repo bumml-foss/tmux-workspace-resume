@@ -16,4 +16,5 @@ Initial release.
 - Auto-restore at server start (`AUTO_RESTORE=reboot|always|never`), once per server. A
   snapshot from a previous boot is protected from being overwritten until a restore ran.
 - `enable` / `disable` for byobu (`$BYOBU_CONFIG_DIR/.tmux.conf`) and plain tmux; TPM entry point.
+- Works without a UTF-8 locale (bare systemd units, containers): tmux is always called with `-u`.
 - Debian packaging, man pages, test-suite on private tmux servers.

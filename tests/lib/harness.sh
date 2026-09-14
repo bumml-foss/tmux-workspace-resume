@@ -50,7 +50,13 @@ trap cleanup EXIT
 
 fail() { echo "FAIL: $*" >&2; exit 1; }
 assert_eq() { [ "$1" = "$2" ] || fail "${3:-assert_eq}: expected '$2', got '$1'"; }
-assert_json() { jq -e "$2" "$1" >/dev/null 2>&1 || fail "${3:-assert_json}: '$2' does not hold in $1"; }
+# assert_json FILE FILTER [MSG]: on failure the document is printed too, so CI logs show why.
+assert_json() {
+	jq -e "$2" "$1" >/dev/null 2>&1 && return 0
+	{ jq -c . "$1" 2>/dev/null || cat "$1"; } | head -c 6000 >&2 || true
+	echo >&2
+	fail "${3:-assert_json}: '$2' does not hold in $1"
+}
 # wait_until <seconds> '<condition>': poll every 0.1 s until the condition (eval'd each time) holds.
 wait_until() {
 	local n=$(( $1 * 10 )) cond=$2

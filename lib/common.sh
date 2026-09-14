@@ -115,7 +115,9 @@ tmux_args_init() {
 		AI_REVIVE_TMUX_ARGS=(-S "${TMUX%%,*}")
 	fi
 }
-tmux_cmd() { command tmux "${AI_REVIVE_TMUX_ARGS[@]}" "$@"; }
+# -u: without a UTF-8 locale (LANG unset, e.g. in a bare systemd or container environment) the
+# client asks the server to replace the tabs in format output with "_", which breaks parsing.
+tmux_cmd() { command tmux -u "${AI_REVIVE_TMUX_ARGS[@]}" "$@"; }
 has_server() { tmux_cmd list-sessions >/dev/null 2>&1; }
 server_pid() { tmux_cmd display -p '#{pid}' 2>/dev/null; }
 tmux_version() { tmux_cmd display -p '#{version}' 2>/dev/null || command tmux -V | awk '{print $2}'; }

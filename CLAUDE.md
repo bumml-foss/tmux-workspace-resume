@@ -29,7 +29,8 @@ id, ssh, whitelist). Usage, layout and workflows: `README.md`. Plain bash + jq, 
   releases stay quiet: write an `if`. Without a local shellcheck, lint with the same version via
   `docker run --rm -v "$PWD:/mnt" -w /mnt koalaman/shellcheck:v0.9.0 -x <files>`.
 - tmux format output is parsed by having tmux emit tabs and `tr '\t' '\037'` before `IFS=$'\x1f' read`;
-  tmux escapes control characters in formats and bash collapses consecutive tabs.
+  tmux escapes control characters in formats and bash collapses consecutive tabs. Always call
+  tmux through `tmux_cmd` (it passes `-u`): a client without a UTF-8 locale gets tabs as `_`.
 - Never pipe `ai-revive` or `tmux` output into `grep -q` in tests (SIGPIPE + pipefail); use the
   harness's `has PATTERN CMD...` or capture into a variable.
 - `wait_until SECONDS 'condition'` takes a string evaluated each poll.
