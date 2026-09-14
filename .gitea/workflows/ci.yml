@@ -1,8 +1,9 @@
 # ai-revive — lint + tests on every push, and a .deb release on a version tag.
 #
 # Jobs:
-#   test     shellcheck, bash -n and tests/run-tests.sh. The tests start private tmux servers
-#            (socket ai-revive-test-<pid>) with fake `claude` and `ssh` executables; they need
+#   test     shellcheck, bash -n, the privacy audit (scripts/audit.sh: gitleaks and data checks
+#            over the whole history) and tests/run-tests.sh. The tests start private tmux servers
+#            (socket ai-revive-test-<pid>) with fake agent and `ssh` executables; they need
 #            tmux, jq, procps and a normal Linux userland, nothing else.
 #   release  only for tags `v<version>`: checks that the tag, VERSION and debian/changelog agree,
 #            builds ai-revive_<version>_all.deb with dpkg-buildpackage, runs lintian and attaches
@@ -22,12 +23,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0                  # the audit reads every commit
       - name: Install tool chain
         run: |
           sudo apt-get update -qq
-          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq shellcheck tmux jq procps util-linux
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq shellcheck tmux jq procps util-linux gitleaks
       - name: Lint
         run: make lint
+      - name: Privacy audit
+        run: make audit
       - name: Test
         run: make test
 

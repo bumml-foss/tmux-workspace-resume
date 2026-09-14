@@ -8,10 +8,11 @@ MANDIR   = $(PREFIX)/share/man
 VERSION := $(shell cat VERSION)
 
 SH_FILES = ai-revive.tmux bin/ai-revive bin/byobu-ai-revive $(wildcard lib/*.sh) $(wildcard resumers/*) \
-           tests/run-tests.sh $(wildcard tests/lib/*.sh) $(wildcard tests/fakes/*) $(wildcard tests/test-*.sh)
+           tests/run-tests.sh $(wildcard tests/lib/*.sh) $(wildcard tests/fakes/*) $(wildcard tests/test-*.sh) \
+           $(wildcard scripts/*.sh)
 
 .DEFAULT_GOAL := help
-.PHONY: help lint test install uninstall deb deb-docker deb-deps clean
+.PHONY: help lint test audit install uninstall deb deb-docker deb-deps clean
 
 help:
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-14s %s\n", $$1, $$2}'
@@ -23,6 +24,9 @@ lint: ## shellcheck + bash -n over every script
 
 test: ## run tests/test-*.sh on private tmux servers (never touches your byobu)
 	tests/run-tests.sh
+
+audit: ## privacy audit of the whole history (secrets, e-mails, paths, hosts, real session ids)
+	scripts/audit.sh
 
 install: ## install under $(DESTDIR)$(PREFIX) (default /usr/local)
 	install -d "$(DESTDIR)$(PREFIX)/bin" "$(DESTDIR)$(SHAREDIR)/lib" "$(DESTDIR)$(SHAREDIR)/resumers" \

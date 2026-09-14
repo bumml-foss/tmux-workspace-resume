@@ -21,9 +21,18 @@ id, ssh, whitelist). Usage, layout and workflows: `README.md`. Plain bash + jq, 
   launch. The hook point is the user's `.tmux.conf` (sourced last), via a marker block.
 - tmux hooks live at index `[900]` so other plugins' hooks coexist. Use only hook names that exist
   in tmux 3.0+ (`tmux show-hooks -g` lists them; there is no `after-kill-window`).
+- **Nothing private goes into the repository**, not in code, tests, docs or commit messages: no
+  real session ids, host names, IP addresses or home paths from a developer machine, no e-mail
+  addresses other than the project's. Examples use made-up values (`/home/me`,
+  `12345678-90ab-...`). `make audit` scans the whole history (gitleaks, e-mail addresses, home
+  paths, private hosts, real agent session ids on this machine, and a private denylist kept
+  outside the repository); it must pass before anything is pushed to a public remote.
 
 ## Conventions
 
+- Commits are signed off and credit AI help with a trailer, never a co-author line:
+  `Assisted-by: Claude:<model id>` followed by `Signed-off-by: Benedikt Humml <bumml.foss@proton.me>`
+  (`git commit -s` adds the latter).
 - `#!/usr/bin/env bash`, `set -euo pipefail`, tabs. Shellcheck-clean with `.shellcheckrc`.
   CI lints with Ubuntu 24.04's shellcheck 0.9.0, which flags `A && B || C` (SC2015) where newer
   releases stay quiet: write an `if`. Without a local shellcheck, lint with the same version via
@@ -53,6 +62,7 @@ id, ssh, whitelist). Usage, layout and workflows: `README.md`. Plain bash + jq, 
 ```bash
 make lint
 make test                                  # all tests, private tmux servers
+make audit                                 # privacy audit of the whole history (before any public push)
 bin/ai-revive save && bin/ai-revive restore --dry-run     # against your live server: read-only
 tmux -L scratch -f /dev/null new-session -d -x 200 -y 50; AI_REVIVE_TMUX_SOCKET_NAME=scratch bin/ai-revive restore --layout-only
 make deb-docker                            # package + lintian

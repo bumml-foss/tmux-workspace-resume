@@ -66,6 +66,7 @@ fresh, `never` leaves it to `prefix + C-r`. Everything else: `examples/config`.
 ```
 make lint          # shellcheck + bash -n
 make test          # tests/run-tests.sh — private tmux servers only, never your own session
+make audit         # privacy audit of the whole history; must pass before any public push
 make deb-docker    # dist/ai-revive_<version>_all.deb built and lintian-checked in ubuntu:24.04
 make install PREFIX=~/.local   # or DESTDIR=... PREFIX=/usr for packaging
 ```
@@ -105,5 +106,6 @@ Install the release `.deb` and run `ai-revive enable` as each user.
 
 ## Release
 
-Tag `v<version>` matching `VERSION` and `debian/changelog`; CI runs lint + tests, builds the
-`.deb` in `ubuntu:24.04`, runs lintian and attaches it to the Gitea release.
+Tag `v<version>` matching `VERSION` and `debian/changelog`; CI runs lint, the privacy audit and
+the tests, builds the `.deb` in `ubuntu:24.04`, runs lintian and attaches it to the release for
+the tag. Commits carry `Assisted-by:` for AI help and `Signed-off-by:` (`git commit -s`).
