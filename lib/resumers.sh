@@ -12,7 +12,7 @@ resumers_list() {
 	for d in "$(config_dir)/resumers" "$AI_REVIVE_HOME/resumers"; do
 		[ -d "$d" ] || continue
 		for f in "$d"/*; do
-			[ -f "$f" ] && [ -x "$f" ] || continue
+			if [ ! -f "$f" ] || [ ! -x "$f" ]; then continue; fi
 			b=$(basename "$f")
 			[ -z "${seen[$b]+x}" ] || continue
 			seen[$b]=$f

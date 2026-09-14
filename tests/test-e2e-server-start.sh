@@ -18,7 +18,7 @@ T split-window -t 0:1 -v -c "$HOME"
 wait_until 5 '[ "$(pane_cmd 0:0)" = claude ] && [ "$(pane_cmd 0:1.0)" = tail ]' || fail "programs not running"
 "$AR" save
 id=$(jq -r '.sessions[0].windows[0].panes[0].meta.sessionId' "$(last_snapshot)")
-[ -n "$id" ] && [ "$id" != null ] || fail "no claude session id captured"
+if [ -z "$id" ] || [ "$id" = null ]; then fail "no claude session id captured"; fi
 kill_server
 rm -f "$FAKE_LOG"/claude.*.args
 # pretend the machine rebooted

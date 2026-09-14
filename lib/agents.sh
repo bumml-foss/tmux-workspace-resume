@@ -65,7 +65,7 @@ agent_args_after() {
 agent_pick() {
 	local since=$(( $1 - 5 )) born=$(( $1 - 1 )) created mtime path best="" best_c="" newest="" newest_m=0
 	while IFS=$'\t' read -r created mtime path; do
-		[ -n "$path" ] && [ "${mtime:-0}" -ge "$since" ] || continue
+		if [ -z "$path" ] || [ "${mtime:-0}" -lt "$since" ]; then continue; fi
 		if [ -n "$created" ] && [ "$created" -ge "$born" ] && { [ -z "$best_c" ] || [ "$created" -lt "$best_c" ]; }; then
 			best=$path; best_c=$created
 		fi
@@ -74,7 +74,7 @@ agent_pick() {
 	if [ -n "$best" ]; then printf '%s' "$best"; elif [ -n "$newest" ]; then printf '%s' "$newest"; else return 1; fi
 }
 # agent_epoch ISO-TIMESTAMP: seconds since the epoch, or nothing.
-agent_epoch() { [ -n "${1:-}" ] && date -d "$1" +%s 2>/dev/null || true; }
+agent_epoch() { if [ -n "${1:-}" ]; then date -d "$1" +%s 2>/dev/null || true; fi; }
 file_mtime() { stat -c %Y "$1" 2>/dev/null || echo 0; }
 
 # agent_emit TOOL RESUME_CMD CWD SESSION_ID HOW: the JSON the resumer contract wants.

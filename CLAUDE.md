@@ -25,6 +25,9 @@ id, ssh, whitelist). Usage, layout and workflows: `README.md`. Plain bash + jq, 
 ## Conventions
 
 - `#!/usr/bin/env bash`, `set -euo pipefail`, tabs. Shellcheck-clean with `.shellcheckrc`.
+  CI lints with Ubuntu 24.04's shellcheck 0.9.0, which flags `A && B || C` (SC2015) where newer
+  releases stay quiet: write an `if`. Without a local shellcheck, lint with the same version via
+  `docker run --rm -v "$PWD:/mnt" -w /mnt koalaman/shellcheck:v0.9.0 -x <files>`.
 - tmux format output is parsed by having tmux emit tabs and `tr '\t' '\037'` before `IFS=$'\x1f' read`;
   tmux escapes control characters in formats and bash collapses consecutive tabs.
 - Never pipe `ai-revive` or `tmux` output into `grep -q` in tests (SIGPIPE + pipefail); use the

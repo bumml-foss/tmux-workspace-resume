@@ -41,7 +41,7 @@ _log() {
 	if [ "$AI_REVIVE_QUIET" != 1 ] || [ "$level" = error ]; then
 		printf '%s\n' "ai-revive: $*" >&2
 	fi
-	mkdir -p "$(state_dir)" 2>/dev/null && printf '%s\n' "$line" >> "$(log_file)" 2>/dev/null || true
+	if mkdir -p "$(state_dir)" 2>/dev/null; then printf '%s\n' "$line" >> "$(log_file)" 2>/dev/null || true; fi
 }
 log_debug() { _log debug "$@"; }
 log_info() { _log info "$@"; }
