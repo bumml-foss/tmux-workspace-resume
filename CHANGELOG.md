@@ -8,9 +8,9 @@ Initial release.
   one session per byobu session group and idempotent restores. Layouts are rescaled
   proportionally to the window size at restore time (tmux itself does not scale them).
 - Resumers: Claude Code by session id (via `~/.claude/sessions`), OpenAI Codex CLI, Gemini CLI
-  and GitHub Copilot CLI by the session file their process holds open or created after it
-  started (written from the published formats, tested against fakes), ssh by command line,
-  whitelist.
+  and GitHub Copilot CLI by the session file their process holds open, the session id on their
+  command line (how a restore relaunches them) or the session file created after they started
+  (written from the published formats, tested against fakes), ssh by command line, whitelist.
 - Auto-save through tmux hooks (debounced) and a systemd user timer; best-effort shutdown save;
   `ai-revive reboot` / `shutdown` for an exact snapshot.
 - Auto-restore at server start (`AUTO_RESTORE=reboot|always|never`), once per server. A

@@ -4,9 +4,10 @@
 #
 # Codex writes each session to $CODEX_HOME/sessions/YYYY/MM/DD/rollout-<time>-<uuid>.jsonl whose
 # first line is {"type":"session_meta","payload":{"id":"<uuid>","cwd":"/dir",...}}. The session
-# is identified by a rollout file the process holds open, else by the newest rollout created
-# after the process started whose cwd is the process's directory. Written from the public
-# format, not tested against the real binary: `ai-revive resumers probe %<pane>` shows the result.
+# is identified by a rollout file the process holds open, else by the session id on its command
+# line (how a restore relaunches it), else by the newest rollout created after the process
+# started whose cwd is the process's directory. Written from the public format, not tested
+# against the real binary: `ai-revive resumers probe %<pane>` shows the result.
 # SPDX-License-Identifier: GPL-3.0-or-later
 set -euo pipefail
 # shellcheck source=../lib/common.sh
@@ -36,7 +37,13 @@ while IFS= read -r f; do
 	exit 0
 done < <(proc_open_paths "$pid")
 
-# 2. the rollout this process began (created soonest after its start) or resumed (newest),
+# 2. the session named on the command line (`codex resume <id>`, as a restore launches it)
+if id=$(agent_resume_arg "$pid"); then
+	agent_emit codex "codex resume $(shell_quote "$id")" "${cwd:-$AI_REVIVE_CWD}" "$id" resume-argument
+	exit 0
+fi
+
+# 3. the rollout this process began (created soonest after its start) or resumed (newest),
 #    among those in the process's directory touched since it started
 if [ -d "$dir" ] && start=$(proc_start_epoch "$pid"); then
 	best=$(while IFS= read -r f; do
@@ -49,6 +56,6 @@ if [ -d "$dir" ] && start=$(proc_start_epoch "$pid"); then
 	fi
 fi
 
-# 3. no session found: relaunch what was typed (a new session)
+# 4. no session found: relaunch what was typed (a new session)
 args=$(agent_args_after "$pid" "$RE")
 agent_emit codex "codex${args:+ $args}" "${cwd:-$AI_REVIVE_CWD}" "" argv

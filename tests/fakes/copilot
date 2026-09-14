@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # Fake GitHub Copilot CLI: records its arguments, creates ~/.copilot/session-state/<uuid>/ with
-# workspace.yaml and an events.jsonl it keeps open (like an active session) and blocks.
+# workspace.yaml and an events.jsonl it keeps open (like an active session) and blocks as
+# "node <script> <arguments>", so the arguments stay on its command line like the real CLI's.
 set -euo pipefail
+if [ "${FAKE_BLOCK:-0}" = 1 ]; then trap 'kill "$!" 2>/dev/null; exit 0' HUP TERM; while :; do sleep 3600 & wait "$!"; done; fi
 : "${FAKE_LOG:?}"
 printf '%s\n' "$@" > "$FAKE_LOG/copilot.$$.args"
 sid="" prev=""
@@ -17,4 +19,5 @@ if [ "${FAKE_NO_SESSION:-0}" != 1 ]; then
 	printf 'id: %s\ncwd: %s\ncreated_at: %s\nsummary: fake session\n' "$sid" "$PWD" "$(date -Is)" > "$d/workspace.yaml"
 	exec 3>>"$d/events.jsonl"     # held open across the exec below, like an active session
 fi
-exec -a copilot sleep infinity
+export FAKE_BLOCK=1
+exec -a node bash "$0" "$@"

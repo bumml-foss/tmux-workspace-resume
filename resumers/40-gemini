@@ -4,9 +4,10 @@
 #
 # Gemini CLI records sessions in ~/.gemini/tmp/<sha256 of the project root>/chats/session-*.json[l]
 # (a JSON object, or JSONL whose first line is the metadata) with a "sessionId" field. The
-# session is identified by a chat file the process holds open, else by the newest chat file
-# created after the process started in the project directory of the process's cwd (or its git
-# root). Written from the public format, not tested against the real binary.
+# session is identified by a chat file the process holds open, else by the session id on its
+# command line (how a restore relaunches it), else by the newest chat file created after the
+# process started in the project directory of the process's cwd (or its git root). Written from
+# the public format, not tested against the real binary.
 # SPDX-License-Identifier: GPL-3.0-or-later
 set -euo pipefail
 # shellcheck source=../lib/common.sh
@@ -36,7 +37,13 @@ while IFS= read -r f; do
 	exit 0
 done < <(proc_open_paths "$pid")
 
-# 2. the chat this process began (created soonest after its start) or resumed (newest), in the
+# 2. the session named on the command line (`gemini --resume <id>`, as a restore launches it)
+if id=$(agent_resume_arg "$pid"); then
+	agent_emit gemini "gemini --resume $(shell_quote "$id")" "${cwd:-$AI_REVIVE_CWD}" "$id" resume-argument
+	exit 0
+fi
+
+# 3. the chat this process began (created soonest after its start) or resumed (newest), in the
 #    project dir of the process's cwd or of its git root
 chat_created() { head -c 65536 "$1" 2>/dev/null | head -n 1 | jq -r '.startTime // empty' 2>/dev/null; }
 if [ -d "$dir" ] && [ -n "$cwd" ] && start=$(proc_start_epoch "$pid"); then
@@ -56,6 +63,6 @@ if [ -d "$dir" ] && [ -n "$cwd" ] && start=$(proc_start_epoch "$pid"); then
 	done
 fi
 
-# 3. no session found: relaunch what was typed (a new session)
+# 4. no session found: relaunch what was typed (a new session)
 args=$(agent_args_after "$pid" "$RE")
 agent_emit gemini "gemini${args:+ $args}" "${cwd:-$AI_REVIVE_CWD}" "" argv

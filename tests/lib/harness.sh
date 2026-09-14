@@ -68,6 +68,9 @@ wait_until() {
 pane_cmd() { T display -p -t "$1" '#{pane_current_command}'; }
 snapshot_dir() { printf '%s' "$XDG_STATE_HOME/ai-revive/snapshots"; }
 last_snapshot() { readlink -f "$(snapshot_dir)/last.json"; }
+# saved_snapshot: run `ai-revive save` and print the file it wrote. Use it right after a restore,
+# whose own settle save may move last.json on concurrently.
+saved_snapshot() { "$AR" save 2>&1 | sed -n 's/^ai-revive: saved .* -> //p' | tail -1; }
 # fresh_server [NAME [COLS ROWS]]: start a detached session (default 200x50; 80x24 is too small for splits).
 fresh_server() {
 	local n=10

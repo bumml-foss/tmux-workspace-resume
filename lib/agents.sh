@@ -56,6 +56,23 @@ agent_args_after() {
 	printf '%s' "$out"
 }
 
+AGENT_UUID_RE='[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}'
+# agent_resume_arg PID: the session id on the process's command line, from `--resume ID`,
+# `--resume=ID`, `-r ID` or `resume ID`. A restore relaunches agents this way, all within a few
+# milliseconds, where agent_pick's start-time rule cannot tell them apart. Only a UUID counts:
+# "latest" or a list index does not say which session it is.
+agent_resume_arg() {
+	local arg prev="" id
+	while IFS= read -r -d '' arg; do
+		id=""
+		case $prev in --resume|-r|resume) id=$arg ;; esac
+		case $arg in --resume=*) id=${arg#--resume=} ;; esac
+		if [[ $id =~ ^$AGENT_UUID_RE$ ]]; then printf '%s' "$id"; return 0; fi
+		prev=$arg
+	done 2>/dev/null < "/proc/$1/cmdline"
+	return 1
+}
+
 # agent_pick START: reads candidate lines "CREATED<TAB>MTIME<TAB>PATH" (epoch seconds; CREATED may be
 # empty) and prints the PATH of the best match for a process started at START: the candidate
 # created soonest after the process started (a session this process began), else the most

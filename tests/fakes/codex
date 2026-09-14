@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 # Fake Codex CLI: records its arguments, writes a rollout file the way the real one does
 # ($CODEX_HOME/sessions/YYYY/MM/DD/rollout-<time>-<uuid>.jsonl with a session_meta first line
-# carrying the cwd), and blocks as a process named codex. FAKE_NO_SESSION=1 skips the file.
+# carrying the cwd), and blocks as "node <script> <arguments>", so the arguments stay on its
+# command line like the real CLI's. FAKE_NO_SESSION=1 skips the file.
 set -euo pipefail
+if [ "${FAKE_BLOCK:-0}" = 1 ]; then trap 'kill "$!" 2>/dev/null; exit 0' HUP TERM; while :; do sleep 3600 & wait "$!"; done; fi
 : "${FAKE_LOG:?}"
 printf '%s\n' "$@" > "$FAKE_LOG/codex.$$.args"
 sid=""
@@ -16,4 +18,5 @@ if [ "${FAKE_NO_SESSION:-0}" != 1 ]; then
 		'{timestamp: $ts, type: "session_meta", payload: {id: $id, timestamp: $ts, cwd: $cwd, originator: "fake", cli_version: "0.0.0"}}' > "$f"
 	echo '{"type":"response_item","payload":{}}' >> "$f"
 fi
-exec -a codex sleep infinity
+export FAKE_BLOCK=1
+exec -a node bash "$0" "$@"

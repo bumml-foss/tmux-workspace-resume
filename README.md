@@ -74,9 +74,10 @@ make install PREFIX=~/.local   # or DESTDIR=... PREFIX=/usr for packaging
 
 Claude Code records the tmux pane it runs in, so its resumer is exact. Codex, Gemini and Copilot
 do not, so their resumers find the agent's process under the pane's shell and identify the
-session by, in order: a session file the process holds open; the session created soonest after
-the process started in the process's directory (or, for a resumed session, the most recently
-modified one); and as a last resort the command line the agent was started with. Two agents
+session by, in order: a session file the process holds open; the session id on its command line
+(`--resume <id>`, which is how a restore relaunches them); the session created soonest after the
+process started in the process's directory (or, for a resumed session, the most recently
+modified one); and as a last resort the command line the agent was started with. Two new agents
 started in the same directory within the same second cannot be told apart. These three were
 written from the tools' published formats and tested against fakes that reproduce those
 formats, not against the real binaries; `ai-revive resumers probe %<pane>` shows what a live

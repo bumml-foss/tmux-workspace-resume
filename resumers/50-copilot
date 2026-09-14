@@ -4,8 +4,9 @@
 #
 # Copilot CLI keeps each session in ~/.copilot/session-state/<uuid>/ (workspace.yaml metadata,
 # events.jsonl while the session is active). The session is identified by a file under such a
-# directory the process holds open, else by the newest session directory touched after the
-# process started whose workspace.yaml names the process's directory (when it records one).
+# directory the process holds open, else by the session id on its command line (how a restore
+# relaunches it), else by the newest session directory touched after the process started whose
+# workspace.yaml names the process's directory (when it records one).
 # Written from the public format, not tested against the real binary.
 # SPDX-License-Identifier: GPL-3.0-or-later
 set -euo pipefail
@@ -24,24 +25,29 @@ RE='(^|[/ ])copilot( |$)|@github/copilot|copilot-cli'
 dir=${COPILOT_HOME:-$HOME/.copilot}/session-state
 pid=$(agent_find_process "${AI_REVIVE_PANE_PID:?}" "$RE") || exit 1
 cwd=$(proc_cwd "$pid")
-UUID='[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}'
 
 # 1. a file under a session directory the process holds open
 while IFS= read -r f; do
 	case $f in "$dir"/*) ;; *) continue ;; esac
 	id=${f#"$dir"/}; id=${id%%/*}
-	printf '%s' "$id" | grep -qE "^$UUID$" || continue
+	[[ $id =~ ^$AGENT_UUID_RE$ ]] || continue
 	agent_emit copilot "copilot --resume $(shell_quote "$id")" "${cwd:-$AI_REVIVE_CWD}" "$id" open-file
 	exit 0
 done < <(proc_open_paths "$pid")
 
-# 2. the session this process began (created soonest after its start) or resumed (newest),
+# 2. the session named on the command line (`copilot --resume <id>`, as a restore launches it)
+if id=$(agent_resume_arg "$pid"); then
+	agent_emit copilot "copilot --resume $(shell_quote "$id")" "${cwd:-$AI_REVIVE_CWD}" "$id" resume-argument
+	exit 0
+fi
+
+# 3. the session this process began (created soonest after its start) or resumed (newest),
 #    among the session directories touched since it started; workspace.yaml's cwd, when
 #    recorded, must be the process's directory
 if [ -d "$dir" ] && start=$(proc_start_epoch "$pid"); then
 	best=$(for d in "$dir"/*/; do
 		d=${d%/}; id=$(basename "$d")
-		printf '%s' "$id" | grep -qE "^$UUID$" || continue
+		[[ $id =~ ^$AGENT_UUID_RE$ ]] || continue
 		created=""
 		if [ -r "$d/workspace.yaml" ]; then
 			recorded=$(sed -n -E 's/^(cwd|working_directory|workingDirectory):[[:space:]]*"?([^"]*)"?[[:space:]]*$/\2/p' "$d/workspace.yaml" | head -1)
@@ -59,6 +65,6 @@ if [ -d "$dir" ] && start=$(proc_start_epoch "$pid"); then
 	fi
 fi
 
-# 3. no session found: relaunch what was typed (a new session)
+# 4. no session found: relaunch what was typed (a new session)
 args=$(agent_args_after "$pid" "$RE")
 agent_emit copilot "copilot${args:+ $args}" "${cwd:-$AI_REVIVE_CWD}" "" argv

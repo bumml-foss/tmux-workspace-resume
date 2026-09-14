@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 # Fake Gemini CLI: records its arguments, writes a chat file the way the real one does
 # (~/.gemini/tmp/<sha256 of cwd>/chats/session-<time>-<id8>.jsonl with a sessionId in the first
-# line) and blocks. FAKE_NODE_STYLE=1 blocks under a node-like argv0 (".../gemini-cli/dist/index.js").
+# line) and blocks as "node <script> <arguments>", so the arguments stay on its command line like
+# the real CLI's. FAKE_NODE_STYLE=1 runs the script as ".../@google/gemini-cli/dist/index.js".
 set -euo pipefail
+if [ "${FAKE_BLOCK:-0}" = 1 ]; then trap 'kill "$!" 2>/dev/null; exit 0' HUP TERM; while :; do sleep 3600 & wait "$!"; done; fi
 : "${FAKE_LOG:?}"
 printf '%s\n' "$@" > "$FAKE_LOG/gemini.$$.args"
 sid="" prev=""
@@ -19,7 +21,11 @@ if [ "${FAKE_NO_SESSION:-0}" != 1 ]; then
 	jq -cn --arg id "$sid" --arg hash "$hash" --arg ts "$(date -Is)" \
 		'{sessionId: $id, projectHash: $hash, startTime: $ts, lastUpdated: $ts, kind: "main"}' > "$f"
 fi
+script=$0
 if [ "${FAKE_NODE_STYLE:-0}" = 1 ]; then
-	exec -a /usr/lib/node_modules/@google/gemini-cli/dist/index.js sleep infinity
+	script=$HOME/.fake-node/@google/gemini-cli/dist/index.js
+	mkdir -p "${script%/*}"
+	cp "$0" "$script"
 fi
-exec -a gemini sleep infinity
+export FAKE_BLOCK=1
+exec -a node bash "$script" "$@"

@@ -49,6 +49,9 @@ and identify its session by, in order: a session file the process holds open
 .RI ( ~/.codex/sessions/.../rollout-*.jsonl ,
 .IR ~/.gemini/tmp/<hash>/chats/session-* ,
 .IR ~/.copilot/session-state/<uuid>/ );
+the session id on its command line
+.RB ( \-\-resume " <id> or " resume " <id>,"
+which is how a restore relaunches it);
 the session created soonest after the process started in the process's directory, or for a
 resumed session the most recently modified one; and, failing that, the command line the agent
 was started with. They emit
@@ -56,7 +59,7 @@ was started with. They emit
 .BR "gemini \-\-resume " <id>
 and
 .BR "copilot \-\-resume " <id> .
-Two agents started in one directory within the same second cannot be told apart. Written from
+Two new agents started in one directory within the same second cannot be told apart. Written from
 the published formats, not verified against the real binaries.
 .TP
 .B 90-whitelist
@@ -102,6 +105,7 @@ and
 .I $AI_REVIVE_HOME/lib/agents.sh
 for
 .BR agent_find_process ,
+.BR agent_resume_arg ,
 .B agent_pick
 and
 .B agent_emit
