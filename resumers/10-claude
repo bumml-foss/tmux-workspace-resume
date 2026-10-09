@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# ai-revive resumer: Claude Code. Relaunches the exact conversation that was open in the pane.
+# tmux-workspace-resume resumer: Claude Code. Relaunches the exact conversation that was open in the pane.
 #
 # Claude Code registers every interactive process in ~/.claude/sessions/<pid>.json with its
 # sessionId, cwd and the tmux pane it runs in ("<session>:@<window>.%<pane>"). We match on the
@@ -9,7 +9,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 set -euo pipefail
 # shellcheck source=../lib/common.sh
-. "${AI_REVIVE_HOME:?}/lib/common.sh"
+. "${TWR_HOME:?}/lib/common.sh"
 
 case ${1:-} in
 	info) echo "Claude Code: resume the conversation that was open in the pane (claude --resume <session-id>)"; exit 0 ;;
@@ -18,9 +18,9 @@ case ${1:-} in
 esac
 
 dir=${CLAUDE_CONFIG_DIR:-$HOME/.claude}/sessions
-pane_id=${AI_REVIVE_PANE_ID:?}
-pane_pid=${AI_REVIVE_PANE_PID:?}
-command=${AI_REVIVE_COMMAND:-}
+pane_id=${TWR_PANE_ID:?}
+pane_pid=${TWR_PANE_PID:?}
+command=${TWR_COMMAND:-}
 
 emit() { # sessionId cwd name status version
 	jq -cn --arg cmd "claude --resume $(shell_quote "$1")" --arg cwd "$2" --arg sid "$1" \
@@ -72,7 +72,7 @@ if [ "$command" = claude ]; then
 		[ "$(proc_argv0 "$child")" = claude ] || continue
 		cmd=$(proc_cmdline_to_shell "$child")
 		[ -n "$cmd" ] || continue
-		jq -cn --arg cmd "$cmd" --arg cwd "${AI_REVIVE_CWD:-}" '{cmd: $cmd, cwd: $cwd, meta: {fallback: "argv"}}'
+		jq -cn --arg cmd "$cmd" --arg cwd "${TWR_CWD:-}" '{cmd: $cmd, cwd: $cwd, meta: {fallback: "argv"}}'
 		exit 0
 	done
 fi

@@ -1,5 +1,5 @@
 dist/
-debian/ai-revive/
+debian/tmux-workspace-resume/
 debian/.debhelper/
 debian/debhelper-build-stamp
 debian/files

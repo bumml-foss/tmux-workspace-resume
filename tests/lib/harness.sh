@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # Sourced by every tests/test-*.sh. Gives each test a throwaway HOME/XDG tree, a private tmux
-# server (socket name ai-revive-test-<pid>) and fake `claude` / `ssh` executables on PATH.
+# server (socket name twr-test-<pid>) and fake `claude` / `ssh` executables on PATH.
 # Nothing here ever talks to the developer's own tmux/byobu server or to systemd.
 set -euo pipefail
 
 REPO=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
-AR=$REPO/bin/ai-revive
+AR=$REPO/bin/tmux-workspace-resume
 export REPO AR
 
 for tool in tmux jq flock setsid; do
@@ -17,13 +17,13 @@ export TMP
 export HOME=$TMP/home XDG_CONFIG_HOME=$TMP/config XDG_STATE_HOME=$TMP/state XDG_RUNTIME_DIR=$TMP/run
 mkdir -p "$HOME" "$XDG_CONFIG_HOME" "$XDG_STATE_HOME" "$XDG_RUNTIME_DIR"
 # The developer may run the suite from inside byobu: never let that leak into the test server.
-unset TMUX TMUX_PANE BYOBU_CONFIG_DIR AI_REVIVE_HOME
-export AI_REVIVE_TMUX_SOCKET_NAME=ai-revive-test-$$
-export AI_REVIVE_NO_SYSTEMD=1
-export AI_REVIVE_RESTORE_SETTLE_S=0
-export AI_REVIVE_RESTORE_DELAY_MS=50
-export AI_REVIVE_RESTORE_STAGGER_MS=0
-export AI_REVIVE_LOG_LEVEL=debug
+unset TMUX TMUX_PANE BYOBU_CONFIG_DIR TWR_HOME
+export TWR_TMUX_SOCKET_NAME=twr-test-$$
+export TWR_NO_SYSTEMD=1
+export TWR_RESTORE_SETTLE_S=0
+export TWR_RESTORE_DELAY_MS=50
+export TWR_RESTORE_STAGGER_MS=0
+export TWR_LOG_LEVEL=debug
 
 export FAKE_LOG=$TMP/fakelog
 mkdir -p "$FAKE_LOG" "$TMP/bin"
@@ -36,7 +36,7 @@ printf 'export PATH=%s:$PATH\n' "$TMP/bin" > "$HOME/.profile"
 cp "$HOME/.profile" "$HOME/.bashrc"
 
 # T: tmux against the private server.
-T() { tmux -L "$AI_REVIVE_TMUX_SOCKET_NAME" -f /dev/null "$@"; }
+T() { tmux -L "$TWR_TMUX_SOCKET_NAME" -f /dev/null "$@"; }
 
 cleanup() {
 	local rc=$? n=20
@@ -66,11 +66,11 @@ wait_until() {
 	done
 }
 pane_cmd() { T display -p -t "$1" '#{pane_current_command}'; }
-snapshot_dir() { printf '%s' "$XDG_STATE_HOME/ai-revive/snapshots"; }
+snapshot_dir() { printf '%s' "$XDG_STATE_HOME/tmux-workspace-resume/snapshots"; }
 last_snapshot() { readlink -f "$(snapshot_dir)/last.json"; }
-# saved_snapshot: run `ai-revive save` and print the file it wrote. Use it right after a restore,
+# saved_snapshot: run `tmux-workspace-resume save` and print the file it wrote. Use it right after a restore,
 # whose own settle save may move last.json on concurrently.
-saved_snapshot() { "$AR" save 2>&1 | sed -n 's/^ai-revive: saved .* -> //p' | tail -1; }
+saved_snapshot() { "$AR" save 2>&1 | sed -n 's/^tmux-workspace-resume: saved .* -> //p' | tail -1; }
 # fresh_server [NAME [COLS ROWS]]: start a detached session (default 200x50; 80x24 is too small for splits).
 fresh_server() {
 	local n=10

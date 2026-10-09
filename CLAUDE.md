@@ -1,4 +1,4 @@
-# ai-revive
+# tmux-workspace-resume
 
 tmux/byobu workspace persistence across reboots, with pluggable resumers (Claude Code by session
 id, ssh, whitelist). Usage, layout and workflows: `README.md`. Plain bash + jq, GPL-3.
@@ -14,7 +14,7 @@ id, ssh, whitelist). Usage, layout and workflows: `README.md`. Plain bash + jq, 
   to restore; a separate `attempted-` marker stops re-entry. `AUTO_RESTORE=never` and `--force`
   bypass the guard. Never write zero panes.
 - **Tests never touch the developer's own tmux server, byobu config or systemd.** Every test
-  sources `tests/lib/harness.sh`: private socket, temp HOME/XDG dirs, `AI_REVIVE_NO_SYSTEMD=1`.
+  sources `tests/lib/harness.sh`: private socket, temp HOME/XDG dirs, `TWR_NO_SYSTEMD=1`.
 - **Everything a resumer prints in `cmd` is typed into a shell.** Quote with `shell_quote` /
   `proc_cmdline_to_shell` (single-quote style, fish-safe), never `printf %q`.
 - **Do not use `windows.tmux`** of byobu: when non-empty, byobu skips session selection on every
@@ -40,11 +40,11 @@ id, ssh, whitelist). Usage, layout and workflows: `README.md`. Plain bash + jq, 
 - tmux format output is parsed by having tmux emit tabs and `tr '\t' '\037'` before `IFS=$'\x1f' read`;
   tmux escapes control characters in formats and bash collapses consecutive tabs. Always call
   tmux through `tmux_cmd` (it passes `-u`): a client without a UTF-8 locale gets tabs as `_`.
-- Never pipe `ai-revive` or `tmux` output into `grep -q` in tests (SIGPIPE + pipefail); use the
+- Never pipe `tmux-workspace-resume` or `tmux` output into `grep -q` in tests (SIGPIPE + pipefail); use the
   harness's `has PATTERN CMD...` or capture into a variable.
 - `wait_until SECONDS 'condition'` takes a string evaluated each poll.
-- The checkout, a TPM clone and `/usr/share/ai-revive` have the same layout
-  (`ai-revive.tmux`, `lib/`, `resumers/`); `bin/ai-revive` finds `AI_REVIVE_HOME` from its own path.
+- The checkout, a TPM clone and `/usr/share/tmux-workspace-resume` have the same layout
+  (`tmux-workspace-resume.tmux`, `lib/`, `resumers/`); `bin/tmux-workspace-resume` finds `TWR_HOME` from its own path.
 - Match Claude panes on `@window.%pane` only; the session-name prefix in
   `~/.claude/sessions/<pid>.json` goes stale when byobu re-attaches.
 
@@ -63,8 +63,8 @@ id, ssh, whitelist). Usage, layout and workflows: `README.md`. Plain bash + jq, 
 make lint
 make test                                  # all tests, private tmux servers
 make audit                                 # privacy audit of the whole history (before any public push)
-bin/ai-revive save && bin/ai-revive restore --dry-run     # against your live server: read-only
-tmux -L scratch -f /dev/null new-session -d -x 200 -y 50; AI_REVIVE_TMUX_SOCKET_NAME=scratch bin/ai-revive restore --layout-only
+bin/tmux-workspace-resume save && bin/tmux-workspace-resume restore --dry-run     # against your live server: read-only
+tmux -L scratch -f /dev/null new-session -d -x 200 -y 50; TWR_TMUX_SOCKET_NAME=scratch bin/tmux-workspace-resume restore --layout-only
 make deb-docker                            # package + lintian
 ```
 

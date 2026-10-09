@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# ai-revive resumer: Google Gemini CLI. Relaunches the session that was open in the pane with
+# tmux-workspace-resume resumer: Google Gemini CLI. Relaunches the session that was open in the pane with
 # `gemini --resume <session-id>`.
 #
 # Gemini CLI records sessions in ~/.gemini/tmp/<sha256 of the project root>/chats/session-*.json[l]
@@ -11,9 +11,9 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 set -euo pipefail
 # shellcheck source=../lib/common.sh
-. "${AI_REVIVE_HOME:?}/lib/common.sh"
+. "${TWR_HOME:?}/lib/common.sh"
 # shellcheck source=../lib/agents.sh
-. "$AI_REVIVE_HOME/lib/agents.sh"
+. "$TWR_HOME/lib/agents.sh"
 
 case ${1:-} in
 	info) echo "Gemini CLI: resume the session that was open in the pane (gemini --resume <session-id>)"; exit 0 ;;
@@ -23,7 +23,7 @@ esac
 
 RE='(^|[/ ])gemini( |$)|gemini-cli'
 dir=${GEMINI_CLI_HOME:-$HOME}/.gemini/tmp
-pid=$(agent_find_process "${AI_REVIVE_PANE_PID:?}" "$RE") || exit 1
+pid=$(agent_find_process "${TWR_PANE_PID:?}" "$RE") || exit 1
 cwd=$(proc_cwd "$pid")
 
 chat_id() { head -c 65536 "$1" 2>/dev/null | head -n 1 | jq -r '.sessionId // empty' 2>/dev/null; }
@@ -33,13 +33,13 @@ sha() { printf '%s' "$1" | sha256sum | cut -d' ' -f1; }
 while IFS= read -r f; do
 	case $f in "$dir"/*/chats/session-*.json|"$dir"/*/chats/session-*.jsonl) ;; *) continue ;; esac
 	id=$(chat_id "$f"); [ -n "$id" ] || continue
-	agent_emit gemini "gemini --resume $(shell_quote "$id")" "${cwd:-$AI_REVIVE_CWD}" "$id" open-file
+	agent_emit gemini "gemini --resume $(shell_quote "$id")" "${cwd:-$TWR_CWD}" "$id" open-file
 	exit 0
 done < <(proc_open_paths "$pid")
 
 # 2. the session named on the command line (`gemini --resume <id>`, as a restore launches it)
 if id=$(agent_resume_arg "$pid"); then
-	agent_emit gemini "gemini --resume $(shell_quote "$id")" "${cwd:-$AI_REVIVE_CWD}" "$id" resume-argument
+	agent_emit gemini "gemini --resume $(shell_quote "$id")" "${cwd:-$TWR_CWD}" "$id" resume-argument
 	exit 0
 fi
 
@@ -65,4 +65,4 @@ fi
 
 # 4. no session found: relaunch what was typed (a new session)
 args=$(agent_args_after "$pid" "$RE")
-agent_emit gemini "gemini${args:+ $args}" "${cwd:-$AI_REVIVE_CWD}" "" argv
+agent_emit gemini "gemini${args:+ $args}" "${cwd:-$TWR_CWD}" "" argv

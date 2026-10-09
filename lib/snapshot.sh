@@ -1,5 +1,5 @@
 # shellcheck shell=bash
-# ai-revive — snapshot files: $XDG_STATE_HOME/ai-revive/snapshots/<timestamp>.json, with
+# tmux-workspace-resume — snapshot files: $XDG_STATE_HOME/tmux-workspace-resume/snapshots/<timestamp>.json, with
 # last.json pointing at the newest one. Old snapshots are pruned to KEEP_SNAPSHOTS.
 # SPDX-License-Identifier: GPL-3.0-or-later
 

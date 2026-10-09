@@ -7,8 +7,8 @@ override_dh_auto_build:
 override_dh_auto_test:
 
 override_dh_auto_install:
-	$(MAKE) install DESTDIR=$(CURDIR)/debian/ai-revive PREFIX=/usr
+	$(MAKE) install DESTDIR=$(CURDIR)/debian/tmux-workspace-resume PREFIX=/usr
 
-# The units are per user; `ai-revive enable` turns them on for the user who wants them.
+# The units are per user; `tmux-workspace-resume enable` turns them on for the user who wants them.
 override_dh_installsystemduser:
 	dh_installsystemduser --no-enable

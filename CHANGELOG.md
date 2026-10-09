@@ -12,7 +12,7 @@ Initial release.
   command line (how a restore relaunches them) or the session file created after they started
   (written from the published formats, tested against fakes), ssh by command line, whitelist.
 - Auto-save through tmux hooks (debounced) and a systemd user timer; best-effort shutdown save;
-  `ai-revive reboot` / `shutdown` for an exact snapshot.
+  `tmux-workspace-resume reboot` / `shutdown` for an exact snapshot.
 - Auto-restore at server start (`AUTO_RESTORE=reboot|always|never`), once per server. A
   snapshot from a previous boot is protected from being overwritten until a restore ran.
 - `enable` / `disable` for byobu (`$BYOBU_CONFIG_DIR/.tmux.conf`) and plain tmux; TPM entry point.

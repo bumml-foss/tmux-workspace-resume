@@ -1,22 +1,22 @@
 # shellcheck shell=bash
-# ai-revive — shared helpers (logging, quoting, /proc and tmux access).
-# Sourced by bin/ai-revive and by the shipped resumers; never executed directly.
+# tmux-workspace-resume — shared helpers (logging, quoting, /proc and tmux access).
+# Sourced by bin/tmux-workspace-resume and by the shipped resumers; never executed directly.
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-AI_REVIVE_QUIET=${AI_REVIVE_QUIET:-0}
-quiet_on() { AI_REVIVE_QUIET=1; }
+TWR_QUIET=${TWR_QUIET:-0}
+quiet_on() { TWR_QUIET=1; }
 
 # ---------------------------------------------------------------- directories
-state_dir() { printf '%s' "${XDG_STATE_HOME:-$HOME/.local/state}/ai-revive"; }
-config_dir() { printf '%s' "${XDG_CONFIG_HOME:-$HOME/.config}/ai-revive"; }
-log_file() { printf '%s' "$(state_dir)/ai-revive.log"; }
+state_dir() { printf '%s' "${XDG_STATE_HOME:-$HOME/.local/state}/tmux-workspace-resume"; }
+config_dir() { printf '%s' "${XDG_CONFIG_HOME:-$HOME/.config}/tmux-workspace-resume"; }
+log_file() { printf '%s' "$(state_dir)/tmux-workspace-resume.log"; }
 state_init() { mkdir -p "$(state_dir)" 2>/dev/null || true; }
 # runtime_dir: per-boot scratch (markers, locks). XDG_RUNTIME_DIR is a tmpfs that is cleared on
 # reboot, which is exactly the lifetime the "restored for this server" markers need.
 runtime_dir() {
 	local d
 	if [ -n "${XDG_RUNTIME_DIR:-}" ] && [ -d "$XDG_RUNTIME_DIR" ] && [ -w "$XDG_RUNTIME_DIR" ]; then
-		d=$XDG_RUNTIME_DIR/ai-revive
+		d=$XDG_RUNTIME_DIR/tmux-workspace-resume
 	else
 		d=$(state_dir)/run
 	fi
@@ -38,8 +38,8 @@ _log() {
 	[ "$have" -ge "$want" ] || return 0
 	local line
 	line="$(date '+%Y-%m-%d %H:%M:%S') [$level] $*"
-	if [ "$AI_REVIVE_QUIET" != 1 ] || [ "$level" = error ]; then
-		printf '%s\n' "ai-revive: $*" >&2
+	if [ "$TWR_QUIET" != 1 ] || [ "$level" = error ]; then
+		printf '%s\n' "tmux-workspace-resume: $*" >&2
 	fi
 	if mkdir -p "$(state_dir)" 2>/dev/null; then printf '%s\n' "$line" >> "$(log_file)" 2>/dev/null || true; fi
 }
@@ -102,28 +102,28 @@ boot_id() { cat /proc/sys/kernel/random/boot_id 2>/dev/null || echo unknown; }
 
 # ---------------------------------------------------------------- tmux
 # tmux_args_init: decide which server to talk to, once. Precedence:
-#   AI_REVIVE_TMUX_SOCKET_NAME (-L, used by the tests) > TMUX_SOCKET config/env (-S) >
+#   TWR_TMUX_SOCKET_NAME (-L, used by the tests) > TMUX_SOCKET config/env (-S) >
 #   $TMUX of the calling pane/hook (-S) > tmux's default socket (what byobu uses).
-AI_REVIVE_TMUX_ARGS=()
+TWR_TMUX_ARGS=()
 tmux_args_init() {
-	AI_REVIVE_TMUX_ARGS=()
-	if [ -n "${AI_REVIVE_TMUX_SOCKET_NAME:-}" ]; then
-		AI_REVIVE_TMUX_ARGS=(-L "$AI_REVIVE_TMUX_SOCKET_NAME")
+	TWR_TMUX_ARGS=()
+	if [ -n "${TWR_TMUX_SOCKET_NAME:-}" ]; then
+		TWR_TMUX_ARGS=(-L "$TWR_TMUX_SOCKET_NAME")
 	elif [ -n "${TMUX_SOCKET:-}" ]; then
-		AI_REVIVE_TMUX_ARGS=(-S "$TMUX_SOCKET")
+		TWR_TMUX_ARGS=(-S "$TMUX_SOCKET")
 	elif [ -n "${TMUX:-}" ]; then
-		AI_REVIVE_TMUX_ARGS=(-S "${TMUX%%,*}")
+		TWR_TMUX_ARGS=(-S "${TMUX%%,*}")
 	fi
 }
 # -u: without a UTF-8 locale (LANG unset, e.g. in a bare systemd or container environment) the
 # client asks the server to replace the tabs in format output with "_", which breaks parsing.
-tmux_cmd() { command tmux -u "${AI_REVIVE_TMUX_ARGS[@]}" "$@"; }
+tmux_cmd() { command tmux -u "${TWR_TMUX_ARGS[@]}" "$@"; }
 has_server() { tmux_cmd list-sessions >/dev/null 2>&1; }
 server_pid() { tmux_cmd display -p '#{pid}' 2>/dev/null; }
 tmux_version() { tmux_cmd display -p '#{version}' 2>/dev/null || command tmux -V | awk '{print $2}'; }
 # pane_idle PANE: the pane's root process (the shell tmux started) has no children, i.e. it sits
 # at its prompt. Works for any shell and is false while byobu-shell is still printing its motd.
-# Our own process chain does not count (an `ai-revive restore` typed into that very pane).
+# Our own process chain does not count (an `tmux-workspace-resume restore` typed into that very pane).
 pane_idle() {
 	local pid child
 	pid=$(tmux_cmd display -p -t "$1" '#{pane_pid}' 2>/dev/null) || return 1

@@ -1,4 +1,4 @@
-Source: ai-revive
+Source: tmux-workspace-resume
 Section: utils
 Priority: optional
 Maintainer: Benedikt Humml <bumml.foss@proton.me>
@@ -6,20 +6,20 @@ Build-Depends: debhelper-compat (= 13)
 Standards-Version: 4.6.2
 Rules-Requires-Root: no
 
-Package: ai-revive
+Package: tmux-workspace-resume
 Architecture: all
 Depends: tmux (>= 3.0), jq, bash (>= 4.4), procps, ${misc:Depends}
 Recommends: byobu
 Suggests: inotify-tools
 Description: save and restore tmux/byobu workspaces across reboots
- ai-revive snapshots every tmux session, window, pane, working directory
+ tmux-workspace-resume snapshots every tmux session, window, pane, working directory
  and layout, and brings them back after a reboot, including the program
  that was running in each pane. Claude Code conversations are resumed by
  session id, ssh connections are re-established with their original
  command line, and any other program can be whitelisted.
  .
  It works as a plain tmux plugin (TPM compatible) and integrates with
- byobu: `ai-revive enable` wires it into the user's byobu configuration,
+ byobu: `tmux-workspace-resume enable` wires it into the user's byobu configuration,
  installs tmux hooks that save on every layout change and a systemd user
  timer for periodic snapshots, and restores the workspace automatically
  when byobu starts after a reboot.

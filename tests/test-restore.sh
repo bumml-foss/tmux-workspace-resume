@@ -83,7 +83,7 @@ kill_server
 fresh_server solo
 type_in solo:0 "tail -f /dev/null"
 wait_until 5 '[ "$(pane_cmd solo:0)" = tail ]' || fail "tail not running"
-AI_REVIVE_RESUME_COMMANDS="tail" "$AR" save
+TWR_RESUME_COMMANDS="tail" "$AR" save
 kill_server
 fresh_server 0
 "$AR" restore
@@ -92,7 +92,7 @@ wait_until 10 '[ "$(pane_cmd solo:0)" = tail ]' || fail "tail not relaunched"
 sleep 1
 assert_eq "$(T list-panes -s -t solo -F x | wc -l)" 1 "second restore must not duplicate the window"
 
-# `ai-revive restore` typed into the fresh window: no stall, that window is kept, others restored
+# `tmux-workspace-resume restore` typed into the fresh window: no stall, that window is kept, others restored
 kill_server
 fresh_server 0
 start=$(date +%s)

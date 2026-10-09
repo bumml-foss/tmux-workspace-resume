@@ -1,15 +1,15 @@
 # shellcheck shell=bash
-# ai-revive — resumer discovery and probing. A resumer is an executable that, given a pane,
+# tmux-workspace-resume — resumer discovery and probing. A resumer is an executable that, given a pane,
 # decides whether it knows how to relaunch the program running there and prints the command.
-# Contract: see ai-revive-resumers(7). Shipped ones live in $AI_REVIVE_HOME/resumers/, user ones
-# in $XDG_CONFIG_HOME/ai-revive/resumers/ (same basename = override). Sorted, first claim wins.
+# Contract: see tmux-workspace-resume-resumers(7). Shipped ones live in $TWR_HOME/resumers/, user ones
+# in $XDG_CONFIG_HOME/tmux-workspace-resume/resumers/ (same basename = override). Sorted, first claim wins.
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 # resumers_list: "basename<TAB>path" lines for the effective set.
 resumers_list() {
 	local -A seen=()
 	local d f b
-	for d in "$(config_dir)/resumers" "$AI_REVIVE_HOME/resumers"; do
+	for d in "$(config_dir)/resumers" "$TWR_HOME/resumers"; do
 		[ -d "$d" ] || continue
 		for f in "$d"/*; do
 			if [ ! -f "$f" ] || [ ! -x "$f" ]; then continue; fi
@@ -29,8 +29,8 @@ resumers_probe() {
 	local b path out rc
 	while IFS=$'\t' read -r b path; do
 		[ -n "$path" ] || continue
-		out=$(AI_REVIVE_PANE_ID=$pane_id AI_REVIVE_PANE_PID=$pane_pid AI_REVIVE_WINDOW_ID=$window_id \
-			AI_REVIVE_SESSION=$session AI_REVIVE_CWD=$cwd AI_REVIVE_COMMAND=$command \
+		out=$(TWR_PANE_ID=$pane_id TWR_PANE_PID=$pane_pid TWR_WINDOW_ID=$window_id \
+			TWR_SESSION=$session TWR_CWD=$cwd TWR_COMMAND=$command \
 			timeout 5 "$path" probe 2>>"$(log_file)") && rc=0 || rc=$?
 		if [ $rc -eq 0 ]; then
 			if printf '%s' "$out" | jq -e '.cmd | type == "string" and length > 0' >/dev/null 2>&1; then
@@ -58,13 +58,13 @@ cmd_resumers() {
 			;;
 		probe)
 			local pane=${2:-}
-			[ -n "$pane" ] || die "usage: ai-revive resumers probe <pane-id>"
+			[ -n "$pane" ] || die "usage: tmux-workspace-resume resumers probe <pane-id>"
 			has_server || die "no tmux server"
 			local US=$'\x1f' pane_id pane_pid window_id session cwd command
 			IFS=$US read -r pane_id pane_pid window_id session cwd command < <(tmux_cmd display -p -t "$pane" \
 				"#{pane_id}	#{pane_pid}	#{window_id}	#{session_name}	#{pane_current_path}	#{pane_current_command}" | tr '\t' '\037')
 			resumers_probe "$pane_id" "$pane_pid" "$window_id" "$session" "$cwd" "$command" | jq .
 			;;
-		*) die "usage: ai-revive resumers [list|probe <pane-id>]" ;;
+		*) die "usage: tmux-workspace-resume resumers [list|probe <pane-id>]" ;;
 	esac
 }

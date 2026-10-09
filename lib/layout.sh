@@ -1,12 +1,12 @@
 # shellcheck shell=bash
-# ai-revive — layout strings. tmux's #{window_layout} is "csum,WxH,X,Y<tree>" where a leaf is
+# tmux-workspace-resume — layout strings. tmux's #{window_layout} is "csum,WxH,X,Y<tree>" where a leaf is
 # "WxH,X,Y,paneid" and containers are "WxH,X,Y{...}" (side by side) or "WxH,X,Y[...]" (stacked).
 # select-layout accepts a string of a different size, but it does not scale it: every pane is
 # shrunk (or grown) by the same absolute amount, so a 67:25 split saved at 93 rows becomes 43:1
 # at 45 rows. layout_scale rescales every cell proportionally and recomputes the checksum.
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-AI_REVIVE_LAYOUT_AWK='
+TWR_LAYOUT_AWK='
 function fail(msg) { print "layout_scale: " msg > "/dev/stderr"; exit 1 }
 # --- parser over the global string S, position P (1-based) ---
 function peek() { return substr(S, P, 1) }
@@ -94,5 +94,5 @@ BEGIN {
 
 # layout_scale LAYOUT WIDTH HEIGHT -> the layout rescaled to WIDTHxHEIGHT (with a valid checksum)
 layout_scale() {
-	awk -v layout="$1" -v w="$2" -v h="$3" "$AI_REVIVE_LAYOUT_AWK"
+	awk -v layout="$1" -v w="$2" -v h="$3" "$TWR_LAYOUT_AWK"
 }

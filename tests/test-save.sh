@@ -28,7 +28,7 @@ assert_json "$snap" '.sessions[0].windows[0].width == 200 and .sessions[0].windo
 assert_json "$snap" '[.sessions[].windows[].panes[] | select(.restore_cmd != null)] | length == 0'
 
 # pruning keeps KEEP_SNAPSHOTS files
-for _ in 1 2 3 4; do sleep 1; AI_REVIVE_KEEP_SNAPSHOTS=3 "$AR" -q save --force; done
+for _ in 1 2 3 4; do sleep 1; TWR_KEEP_SNAPSHOTS=3 "$AR" -q save --force; done
 n=$(find "$(snapshot_dir)" -maxdepth 1 -name '*.json' -type f | wc -l)
 assert_eq "$n" 3 "pruned to KEEP_SNAPSHOTS"
 [ -L "$(snapshot_dir)/last.json" ] || fail "last.json is not a symlink"

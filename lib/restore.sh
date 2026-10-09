@@ -1,5 +1,5 @@
 # shellcheck shell=bash
-# ai-revive — rebuild sessions, windows and panes from a snapshot and relaunch their programs.
+# tmux-workspace-resume — rebuild sessions, windows and panes from a snapshot and relaunch their programs.
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 # say LINE: the restore plan goes to stdout on a dry run and to the log file on a real one.
@@ -203,7 +203,7 @@ restore_from_file() {
 		touch "$(restore_marker)"
 		flock -u 8
 		if [ "$layout_only" != 1 ] && [ "${RESTORE_SETTLE_S:-0}" -gt 0 ] 2>/dev/null; then
-			setsid -f bash -c "sleep $RESTORE_SETTLE_S; exec \"\$0\" save --quiet" "$AI_REVIVE_BIN" </dev/null >/dev/null 2>&1 || true
+			setsid -f bash -c "sleep $RESTORE_SETTLE_S; exec \"\$0\" save --quiet" "$TWR_BIN" </dev/null >/dev/null 2>&1 || true
 		fi
 		log_info "restored from $file"
 	fi
@@ -217,7 +217,7 @@ cmd_restore() {
 			--dry-run|-n) dry=1 ;;
 			--layout-only) layout_only=1 ;;
 			-q|--quiet) quiet_on ;;
-			-*) die "usage: ai-revive restore [--auto] [--dry-run] [--layout-only] [snapshot]" ;;
+			-*) die "usage: tmux-workspace-resume restore [--auto] [--dry-run] [--layout-only] [snapshot]" ;;
 			*) snap=$1 ;;
 		esac
 		shift
@@ -229,8 +229,8 @@ cmd_restore() {
 		# one attempt per server; a decision not to restore also lets saves proceed (completion marker)
 		[ -e "$(restore_attempt_marker)" ] && { log_debug "already ran for this server"; return 0; }
 		touch "$(restore_attempt_marker)"
-		if [ "${AI_REVIVE_NO_RESTORE:-0}" = 1 ]; then
-			log_info "AI_REVIVE_NO_RESTORE is set; not restoring"
+		if [ "${TWR_NO_RESTORE:-0}" = 1 ]; then
+			log_info "TWR_NO_RESTORE is set; not restoring"
 			touch "$(restore_marker)"
 			return 0
 		fi

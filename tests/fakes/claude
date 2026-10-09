@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Fake `claude` for the test-suite. Behaves like the real CLI as far as ai-revive is concerned:
+# Fake `claude` for the test-suite. Behaves like the real CLI as far as tmux-workspace-resume is concerned:
 # records its arguments, registers itself in ~/.claude/sessions/<pid>.json (same fields the real
 # one writes, including the tmux pane reference and procStart) and then blocks.
 set -euo pipefail

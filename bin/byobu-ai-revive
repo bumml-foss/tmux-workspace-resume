@@ -1,8 +1,0 @@
-#!/usr/bin/env bash
-# byobu-ai-revive — the byobu flavour of ai-revive(1): identical, but `enable`/`disable`/`status`
-# act on the byobu configuration directory even when byobu is not on PATH.
-# SPDX-License-Identifier: GPL-3.0-or-later
-set -euo pipefail
-AI_REVIVE_FLAVOUR=byobu
-export AI_REVIVE_FLAVOUR
-exec "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/ai-revive" "$@"

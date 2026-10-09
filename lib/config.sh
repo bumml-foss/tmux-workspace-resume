@@ -1,11 +1,11 @@
 # shellcheck shell=bash
-# ai-revive — configuration. Precedence: built-in defaults < $XDG_CONFIG_HOME/ai-revive/config
-# (plain KEY=VALUE, sourced by bash) < environment AI_REVIVE_<KEY>. Every key is exported as
-# AI_REVIVE_<KEY> so resumers see the effective values. See examples/config.
+# tmux-workspace-resume — configuration. Precedence: built-in defaults < $XDG_CONFIG_HOME/tmux-workspace-resume/config
+# (plain KEY=VALUE, sourced by bash) < environment TWR_<KEY>. Every key is exported as
+# TWR_<KEY> so resumers see the effective values. See examples/config.
 # SPDX-License-Identifier: GPL-3.0-or-later
 # shellcheck disable=SC2034  # the keys are read by the other lib files
 
-AI_REVIVE_CONFIG_KEYS="AUTO_RESTORE SAVE_INTERVAL_MIN SAVE_DEBOUNCE_S RESTORE_SETTLE_S KEEP_SNAPSHOTS \
+TWR_CONFIG_KEYS="AUTO_RESTORE SAVE_INTERVAL_MIN SAVE_DEBOUNCE_S RESTORE_SETTLE_S KEEP_SNAPSHOTS \
 RESUME_COMMANDS RESTORE_DELAY_MS RESTORE_STAGGER_MS SHELL_WAIT_S KEY_SAVE KEY_RESTORE TMUX_SOCKET LOG_LEVEL"
 
 config_load() {
@@ -23,15 +23,15 @@ config_load() {
 	TMUX_SOCKET=                 # -S path for non-default sockets (TMUX_TMPDIR users)
 	LOG_LEVEL=info               # debug | info | warn | error
 
-	local f=${AI_REVIVE_CONFIG_FILE:-$(config_dir)/config}
+	local f=${TWR_CONFIG_FILE:-$(config_dir)/config}
 	if [ -r "$f" ]; then
 		# shellcheck source=/dev/null
 		. "$f"
 	fi
 
 	local key envname
-	for key in $AI_REVIVE_CONFIG_KEYS; do
-		envname=AI_REVIVE_$key
+	for key in $TWR_CONFIG_KEYS; do
+		envname=TWR_$key
 		if [ -n "${!envname+x}" ]; then
 			printf -v "$key" '%s' "${!envname}"
 		fi

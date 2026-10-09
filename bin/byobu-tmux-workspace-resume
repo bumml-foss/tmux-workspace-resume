@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# byobu-tmux-workspace-resume — the byobu flavour of tmux-workspace-resume(1): identical, but `enable`/`disable`/`status`
+# act on the byobu configuration directory even when byobu is not on PATH.
+# SPDX-License-Identifier: GPL-3.0-or-later
+set -euo pipefail
+TWR_FLAVOUR=byobu
+export TWR_FLAVOUR
+exec "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/tmux-workspace-resume" "$@"

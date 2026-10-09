@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# ai-revive.tmux installs hooks at index 900 and key bindings; a new window triggers a debounced save;
+# tmux-workspace-resume.tmux installs hooks at index 900 and key bindings; a new window triggers a debounced save;
 # hook remove cleans up.
 . "$(dirname "${BASH_SOURCE[0]}")/lib/harness.sh"
 
-export AI_REVIVE_SAVE_DEBOUNCE_S=1
-export AI_REVIVE_AUTO_RESTORE=never
+export TWR_SAVE_DEBOUNCE_S=1
+export TWR_AUTO_RESTORE=never
 fresh_server h
-T run-shell "$REPO/ai-revive.tmux"
+T run-shell "$REPO/tmux-workspace-resume.tmux"
 hooks=$(T show-hooks -g)
 echo "$hooks" | grep -q 'after-new-window\[900\].*save --debounce' || fail "after-new-window hook missing: $hooks"
 assert_eq "$(echo "$hooks" | grep -c '\[900\]')" 10 "ten hooks installed"
@@ -27,5 +27,5 @@ assert_json "$(last_snapshot)" '.sessions[0].windows | length == 7'
 
 "$AR" hook remove
 assert_eq "$(T show-hooks -g | grep -c '\[900\]')" 0 "hooks removed"
-has 'C-s .*ai-revive' T list-keys && fail "save key still bound"
+has 'C-s .*tmux-workspace-resume' T list-keys && fail "save key still bound"
 echo ok

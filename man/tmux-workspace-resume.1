@@ -1,24 +1,24 @@
-.TH AI-REVIVE 1 "September 2026" "ai-revive 0.1.0" "User Commands"
+.TH TMUX-WORKSPACE-RESUME 1 "September 2026" "tmux-workspace-resume 0.1.0" "User Commands"
 .SH NAME
-ai-revive \- save and restore a tmux/byobu workspace across reboots
+tmux-workspace-resume \- save and restore a tmux/byobu workspace across reboots
 .SH SYNOPSIS
-.B ai-revive
+.B tmux-workspace-resume
 .RI [ \-q ]
 .I command
 .RI [ options ]
 .br
-.B byobu-ai-revive
+.B byobu-tmux-workspace-resume
 .RI [ \-q ]
 .I command
 .RI [ options ]
 .SH DESCRIPTION
-.B ai-revive
+.B tmux-workspace-resume
 snapshots every tmux session, window, pane, working directory and layout of the running
 server and rebuilds them on a fresh server, typically the one byobu starts after a reboot.
 For each pane it asks a chain of
 .I resumers
 (see
-.BR ai-revive-resumers (7))
+.BR tmux-workspace-resume-resumers (7))
 whether the program running there can be relaunched with its state: Claude Code conversations
 come back with
 .B claude --resume
@@ -28,16 +28,16 @@ ssh connections with their original command line, and any program listed in
 with its arguments.
 .PP
 Snapshots are written to
-.IR $XDG_STATE_HOME/ai-revive/snapshots/ ,
+.IR $XDG_STATE_HOME/tmux-workspace-resume/snapshots/ ,
 the newest one being
 .IR last.json .
 Saving happens on tmux events (new window, split, rename, layout change, ...) through hooks,
 periodically through a systemd user timer, on
 .B prefix + C-s
 and, most reliably, through
-.B ai-revive reboot
+.B tmux-workspace-resume reboot
 and
-.BR "ai-revive shutdown" .
+.BR "tmux-workspace-resume shutdown" .
 .SH COMMANDS
 .TP
 .BR save " [" \-\-debounce "] [" \-\-force ]
@@ -74,7 +74,7 @@ runs at most once per server and stays silent.
 Snapshots on disk, newest first, with their boot id and a summary.
 .TP
 .B status
-Where ai-revive is enabled, whether the hooks and the timer are active, the newest snapshot.
+Where tmux-workspace-resume is enabled, whether the hooks and the timer are active, the newest snapshot.
 .TP
 .BR enable " [" \-\-byobu | \-\-tmux ]
 Wire the plugin into the user's byobu configuration
@@ -83,7 +83,7 @@ sourced last by byobu) or into
 .IR ~/.tmux.conf ,
 install the hooks on a running server and enable the systemd user timer. The default flavour
 is byobu when byobu is installed or the command was invoked as
-.BR byobu-ai-revive .
+.BR byobu-tmux-workspace-resume .
 The configuration change is a marker-delimited block that
 .B disable
 removes again.
@@ -112,22 +112,22 @@ alive at that moment.
 .TP
 .BR \-q ", " \-\-quiet
 Print nothing on stderr; the log in
-.I $XDG_STATE_HOME/ai-revive/ai-revive.log
+.I $XDG_STATE_HOME/tmux-workspace-resume/tmux-workspace-resume.log
 is always written.
 .SH HOW A REBOOT WORKS
 .IP 1. 4
-.B ai-revive enable
+.B tmux-workspace-resume enable
 once. From then on every layout change and every 5 minutes produce a snapshot.
 .IP 2. 4
-.BR "ai-revive reboot" ,
+.BR "tmux-workspace-resume reboot" ,
 or any other reboot: the newest snapshot is at most a few minutes old.
 .IP 3. 4
 Log in and start
 .BR byobu .
 Its configuration runs
-.IR ai-revive.tmux ,
+.IR tmux-workspace-resume.tmux ,
 which installs the hooks and starts
-.B ai-revive restore \-\-auto
+.B tmux-workspace-resume restore \-\-auto
 in the background. The snapshot is from a previous boot, so the windows, names, layouts and
 directories come back within a second, and each pane's program is typed into its shell once the
 prompt is up: the Claude panes resume their exact conversations, ssh panes reconnect.
@@ -137,33 +137,33 @@ A second
 in another terminal attaches through byobu's usual grouped session; nothing is restored twice.
 .SH TMUX WITHOUT BYOBU
 Add
-.B set -g @plugin 'bumml/ai-revive'
+.B set -g @plugin 'bumml-foss/tmux-workspace-resume'
 to
 .I ~/.tmux.conf
 and install it with TPM, or run
-.BR "ai-revive enable \-\-tmux" .
+.BR "tmux-workspace-resume enable \-\-tmux" .
 .SH FILES
 .TP
-.I $XDG_CONFIG_HOME/ai-revive/config
+.I $XDG_CONFIG_HOME/tmux-workspace-resume/config
 Settings, see
-.IR /usr/share/doc/ai-revive/examples/config .
+.IR /usr/share/doc/tmux-workspace-resume/examples/config .
 .TP
-.I $XDG_CONFIG_HOME/ai-revive/resumers/
+.I $XDG_CONFIG_HOME/tmux-workspace-resume/resumers/
 User resumers; a file with the same name as a shipped one replaces it.
 .TP
-.I $XDG_STATE_HOME/ai-revive/snapshots/
+.I $XDG_STATE_HOME/tmux-workspace-resume/snapshots/
 Snapshots and
 .IR last.json .
 .TP
-.I $XDG_RUNTIME_DIR/ai-revive/
+.I $XDG_RUNTIME_DIR/tmux-workspace-resume/
 Per-boot markers and locks.
 .SH ENVIRONMENT
 Every configuration key can be set as
-.BI AI_REVIVE_ KEY
+.BI TWR_ KEY
 and takes precedence over the file.
-.B AI_REVIVE_NO_RESTORE=1
+.B TWR_NO_RESTORE=1
 disables the automatic restore for one server start.
 .SH SEE ALSO
-.BR ai-revive-resumers (7),
+.BR tmux-workspace-resume-resumers (7),
 .BR tmux (1),
 .BR byobu (1)

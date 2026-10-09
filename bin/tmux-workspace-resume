@@ -1,0 +1,107 @@
+#!/usr/bin/env bash
+# tmux-workspace-resume — save and restore a tmux/byobu workspace across reboots, including the programs
+# that were running in each pane (Claude Code sessions by ID, ssh connections, ...).
+#
+# Copyright (C) 2026 Benedikt Humml <bumml.foss@proton.me>
+# SPDX-License-Identifier: GPL-3.0-or-later
+set -euo pipefail
+
+# Locate the installation: a checkout / TPM clone (this file in <root>/bin) or a system install
+# (/usr/bin/tmux-workspace-resume -> /usr/share/tmux-workspace-resume). TWR_HOME overrides.
+_self=$(readlink -f "${BASH_SOURCE[0]}")
+_root=$(dirname "$(dirname "$_self")")
+if [ -z "${TWR_HOME:-}" ]; then
+	if [ -e "$_root/tmux-workspace-resume.tmux" ] && [ -d "$_root/lib" ]; then
+		TWR_HOME=$_root
+	elif [ -d "$_root/share/tmux-workspace-resume/lib" ]; then
+		TWR_HOME=$_root/share/tmux-workspace-resume
+	else
+		echo "tmux-workspace-resume: cannot find lib/ next to $_self (set TWR_HOME)" >&2
+		exit 1
+	fi
+fi
+export TWR_HOME
+export TWR_BIN=$_self
+
+for _lib in "$TWR_HOME"/lib/*.sh; do
+	# shellcheck source=/dev/null
+	. "$_lib"
+done
+
+# Every one of these exists in tmux 3.0+; kill-window/kill-session are covered by window-unlinked.
+TWR_HOOKS="after-new-window after-split-window after-kill-pane after-rename-window after-rename-session \
+after-select-layout after-resize-pane window-unlinked window-linked client-detached"
+TWR_HOOK_INDEX=900
+
+cmd_version() { cat "$TWR_HOME/VERSION"; }
+
+cmd_help() {
+	cat <<'USAGE'
+usage: tmux-workspace-resume [-q] <command> [options]
+
+  save [--debounce] [--force]   snapshot every session, window, pane and resumable program
+  restore [--dry-run] [--layout-only] [--auto] [snapshot]
+                                rebuild from a snapshot (default: the newest) and relaunch programs
+  list                          snapshots on disk
+  status                        what is enabled, hooks, timer, newest snapshot
+  enable [--byobu|--tmux]       wire tmux-workspace-resume into byobu (or ~/.tmux.conf) and start the save timer
+  disable                       undo enable
+  resumers [list|probe <pane>]  the programs tmux-workspace-resume knows how to relaunch
+  shutdown | reboot             save, then systemctl poweroff / reboot
+  version | help
+
+Global: -q/--quiet silences stderr (the log in $XDG_STATE_HOME/tmux-workspace-resume/tmux-workspace-resume.log stays on).
+Snapshots live in $XDG_STATE_HOME/tmux-workspace-resume/snapshots/. Config: $XDG_CONFIG_HOME/tmux-workspace-resume/config.
+Manual pages: tmux-workspace-resume(1), tmux-workspace-resume-resumers(7).
+USAGE
+}
+
+# hook install|remove: tmux hooks + key bindings on the running server (done by tmux-workspace-resume.tmux).
+cmd_hook() {
+	local sub=${1:-} h bin
+	has_server || die "no tmux server"
+	bin=$(shell_quote "$TWR_BIN")
+	case $sub in
+		install)
+			for h in $TWR_HOOKS; do
+				tmux_cmd set-hook -g "${h}[$TWR_HOOK_INDEX]" "run-shell -b \"$bin save --debounce --quiet\""
+			done
+			tmux_cmd bind-key "$KEY_SAVE" run-shell "$bin save --quiet && tmux display-message 'tmux-workspace-resume: saved' || tmux display-message 'tmux-workspace-resume: save failed, see the log'"
+			tmux_cmd bind-key "$KEY_RESTORE" run-shell -b "$bin restore --quiet"
+			log_debug "hooks and key bindings installed"
+			;;
+		remove)
+			for h in $TWR_HOOKS; do
+				tmux_cmd set-hook -gu "${h}[$TWR_HOOK_INDEX]" 2>/dev/null || true
+			done
+			tmux_cmd unbind-key "$KEY_SAVE" 2>/dev/null || true
+			tmux_cmd unbind-key "$KEY_RESTORE" 2>/dev/null || true
+			log_debug "hooks and key bindings removed"
+			;;
+		*) die "usage: tmux-workspace-resume hook install|remove" ;;
+	esac
+}
+
+main() {
+	local cmd=""
+	while [ $# -gt 0 ]; do
+		case $1 in
+			-q|--quiet) quiet_on ;;
+			-h|--help|help) cmd_help; return 0 ;;
+			-V|--version|version) cmd_version; return 0 ;;
+			-*) echo "tmux-workspace-resume: unknown option $1" >&2; cmd_help >&2; return 2 ;;
+			*) cmd=$1; shift; break ;;
+		esac
+		shift
+	done
+	config_load
+	tmux_args_init
+	state_init
+	case $cmd in
+		save|restore|list|status|enable|disable|resumers|shutdown|reboot|hook) "cmd_$cmd" "$@" ;;
+		"") cmd_help >&2; return 2 ;;
+		*) echo "tmux-workspace-resume: unknown command '$cmd'" >&2; cmd_help >&2; return 2 ;;
+	esac
+}
+
+main "$@"

@@ -1,14 +1,14 @@
-# ai-revive configuration — copy to ~/.config/ai-revive/config and uncomment what you change.
-# Plain KEY=VALUE lines (sourced by bash). Any key can also be set as AI_REVIVE_<KEY> in the
+# tmux-workspace-resume configuration — copy to ~/.config/tmux-workspace-resume/config and uncomment what you change.
+# Plain KEY=VALUE lines (sourced by bash). Any key can also be set as TWR_<KEY> in the
 # environment, which wins over this file.
 
 # When a tmux/byobu server starts fresh and a snapshot exists:
 #   reboot  restore only if the snapshot is from a previous boot (default)
 #   always  restore whenever the server starts fresh, e.g. after `tmux kill-server`
-#   never   only restore on request (prefix + KEY_RESTORE, or `ai-revive restore`)
+#   never   only restore on request (prefix + KEY_RESTORE, or `tmux-workspace-resume restore`)
 #AUTO_RESTORE=reboot
 
-# Period of the systemd user timer, in minutes. `ai-revive enable` applies a change.
+# Period of the systemd user timer, in minutes. `tmux-workspace-resume enable` applies a change.
 #SAVE_INTERVAL_MIN=5
 
 # Seconds to wait after a tmux event (new window, split, rename, ...) before saving, so a burst
@@ -18,7 +18,7 @@
 # Seconds after a restore before an extra save picks up the relaunched programs (0 = off).
 #RESTORE_SETTLE_S=15
 
-# Snapshots kept in $XDG_STATE_HOME/ai-revive/snapshots/ (older ones are deleted).
+# Snapshots kept in $XDG_STATE_HOME/tmux-workspace-resume/snapshots/ (older ones are deleted).
 #KEEP_SNAPSHOTS=20
 
 # Programs the whitelist resumer relaunches with their original arguments (space separated,
@@ -39,5 +39,5 @@
 # for the default socket (what byobu uses).
 #TMUX_SOCKET=
 
-# debug | info | warn | error — for the log in $XDG_STATE_HOME/ai-revive/ai-revive.log
+# debug | info | warn | error — for the log in $XDG_STATE_HOME/tmux-workspace-resume/tmux-workspace-resume.log
 #LOG_LEVEL=info

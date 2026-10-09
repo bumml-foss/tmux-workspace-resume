@@ -1,4 +1,4 @@
-ai-revive (0.1.0) unstable; urgency=medium
+tmux-workspace-resume (0.1.0) unstable; urgency=medium
 
   * Initial release: save/restore of tmux and byobu workspaces, resumers for
     Claude Code, OpenAI Codex CLI, Gemini CLI and GitHub Copilot CLI (by

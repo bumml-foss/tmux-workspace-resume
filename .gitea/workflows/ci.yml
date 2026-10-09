@@ -1,12 +1,12 @@
-# ai-revive — lint + tests on every push, and a .deb release on a version tag.
+# tmux-workspace-resume — lint + tests on every push, and a .deb release on a version tag.
 #
 # Jobs:
 #   test     shellcheck, bash -n, the privacy audit (scripts/audit.sh: gitleaks and data checks
 #            over the whole history) and tests/run-tests.sh. The tests start private tmux servers
-#            (socket ai-revive-test-<pid>) with fake agent and `ssh` executables; they need
+#            (socket twr-test-<pid>) with fake agent and `ssh` executables; they need
 #            tmux, jq, procps and a normal Linux userland, nothing else.
 #   release  only for tags `v<version>`: checks that the tag, VERSION and debian/changelog agree,
-#            builds ai-revive_<version>_all.deb with dpkg-buildpackage, runs lintian and attaches
+#            builds tmux-workspace-resume_<version>_all.deb with dpkg-buildpackage, runs lintian and attaches
 #            the .deb to a Gitea release for the tag (created if missing).
 #
 # The self-hosted runner (label ubuntu-latest) allows sudo apt-get, so no custom container is
@@ -55,7 +55,7 @@ jobs:
           test "$TAG" = "$VERSION" || { echo "::error::tag v$TAG != VERSION $VERSION"; exit 1; }
           test "$CHANGELOG" = "$VERSION" || { echo "::error::debian/changelog $CHANGELOG != VERSION $VERSION"; exit 1; }
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
-          echo "ASSET=ai-revive_${VERSION}_all.deb" >> "$GITHUB_ENV"
+          echo "ASSET=tmux-workspace-resume_${VERSION}_all.deb" >> "$GITHUB_ENV"
           echo "RELEASE_TAG=v${VERSION}" >> "$GITHUB_ENV"
       - name: Build the .deb
         run: make deb

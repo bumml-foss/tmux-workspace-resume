@@ -3,7 +3,7 @@
 . "$(dirname "${BASH_SOURCE[0]}")/lib/harness.sh"
 
 assert_eq "$("$AR" version)" "$(cat "$REPO/VERSION")" "version"
-has '^usage: ai-revive' "$AR" help || fail "help"
+has '^usage: tmux-workspace-resume' "$AR" help || fail "help"
 has 'no snapshots yet' "$AR" list || fail "list without snapshots"
 "$AR" bogus >/dev/null 2>&1 && fail "unknown command must fail"
 rc=0; "$AR" restore >/dev/null 2>&1 || rc=$?

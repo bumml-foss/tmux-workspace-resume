@@ -1,0 +1,7 @@
+[Unit]
+Description=tmux-workspace-resume: snapshot the tmux/byobu workspace
+Documentation=man:tmux-workspace-resume(1)
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/tmux-workspace-resume save --quiet

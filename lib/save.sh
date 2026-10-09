@@ -1,5 +1,5 @@
 # shellcheck shell=bash
-# ai-revive — snapshot the running tmux server.
+# tmux-workspace-resume — snapshot the running tmux server.
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 # save_pick_sessions: one representative per session group (byobu attaches every client through
@@ -86,7 +86,7 @@ save_now() {
 	if ! has_server; then log_debug "no tmux server; nothing to save"; return 0; fi
 	if [ $force -eq 0 ] && restore_in_progress; then log_debug "a restore is in progress; skipping save"; return 0; fi
 	if [ $force -eq 0 ] && save_restore_pending; then
-		log_info "the snapshot is from a previous boot and no restore ran on this server yet; keeping it (ai-revive restore, or save --force)"
+		log_info "the snapshot is from a previous boot and no restore ran on this server yet; keeping it (tmux-workspace-resume restore, or save --force)"
 		return 0
 	fi
 	local json
@@ -108,7 +108,7 @@ save_debounced() {
 	done
 	flock -u 9
 	# An event that arrived between the loop test and the unlock would otherwise wait for the timer.
-	[ -e "$rd/dirty" ] && exec "$AI_REVIVE_BIN" save --debounce --quiet
+	[ -e "$rd/dirty" ] && exec "$TWR_BIN" save --debounce --quiet
 	return 0
 }
 
@@ -119,7 +119,7 @@ cmd_save() {
 			--debounce) debounce=1 ;;
 			--force) force=1 ;;
 			-q|--quiet) quiet_on ;;
-			*) die "usage: ai-revive save [--debounce] [--force]" ;;
+			*) die "usage: tmux-workspace-resume save [--debounce] [--force]" ;;
 		esac
 		shift
 	done

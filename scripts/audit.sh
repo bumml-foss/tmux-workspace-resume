@@ -11,7 +11,7 @@
 #   session ids  UUIDs of real agent sessions on this machine (~/.claude, ~/.codex, ~/.gemini,
 #                ~/.copilot), also as shortened "xxxxxxxx-..." examples
 #   denylist     optional private patterns, one case-insensitive extended regex per line, read from
-#                ${AI_REVIVE_AUDIT_DENYLIST:-$XDG_CONFIG_HOME/ai-revive/audit-denylist}. Keep that
+#                ${TWR_AUDIT_DENYLIST:-$XDG_CONFIG_HOME/tmux-workspace-resume/audit-denylist}. Keep that
 #                file outside the repository: committing it would publish what it protects.
 #
 # Usage: scripts/audit.sh (or `make audit`). Exit 0 when clean, 1 on findings.
@@ -83,7 +83,7 @@ if [ ${#dirs[@]} -gt 0 ]; then
 fi
 
 # private denylist
-deny=${AI_REVIVE_AUDIT_DENYLIST:-${XDG_CONFIG_HOME:-$HOME/.config}/ai-revive/audit-denylist}
+deny=${TWR_AUDIT_DENYLIST:-${XDG_CONFIG_HOME:-$HOME/.config}/tmux-workspace-resume/audit-denylist}
 if [ -r "$deny" ]; then
 	while IFS= read -r re || [ -n "$re" ]; do
 		case $re in ''|'#'*) continue ;; esac

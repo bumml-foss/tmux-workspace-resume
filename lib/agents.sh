@@ -1,5 +1,5 @@
 # shellcheck shell=bash
-# ai-revive — helpers for resumers of AI coding agents that, unlike Claude Code, do not record
+# tmux-workspace-resume — helpers for resumers of AI coding agents that, unlike Claude Code, do not record
 # which tmux pane they run in. The resumer finds the agent's process under the pane's shell and
 # identifies its session by (1) a session file the process holds open, (2) the newest session
 # file created after the process started, in the process's directory, or (3) gives up on the

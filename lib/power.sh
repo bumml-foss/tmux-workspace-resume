@@ -1,5 +1,5 @@
 # shellcheck shell=bash
-# ai-revive — shutdown/reboot: the reliable way to power off. Saves first, then hands over to systemd.
+# tmux-workspace-resume — shutdown/reboot: the reliable way to power off. Saves first, then hands over to systemd.
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 power_action() {

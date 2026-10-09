@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# ai-revive resumer: GitHub Copilot CLI. Relaunches the session that was open in the pane with
+# tmux-workspace-resume resumer: GitHub Copilot CLI. Relaunches the session that was open in the pane with
 # `copilot --resume <session-id>`.
 #
 # Copilot CLI keeps each session in ~/.copilot/session-state/<uuid>/ (workspace.yaml metadata,
@@ -11,9 +11,9 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 set -euo pipefail
 # shellcheck source=../lib/common.sh
-. "${AI_REVIVE_HOME:?}/lib/common.sh"
+. "${TWR_HOME:?}/lib/common.sh"
 # shellcheck source=../lib/agents.sh
-. "$AI_REVIVE_HOME/lib/agents.sh"
+. "$TWR_HOME/lib/agents.sh"
 
 case ${1:-} in
 	info) echo "GitHub Copilot CLI: resume the session that was open in the pane (copilot --resume <session-id>)"; exit 0 ;;
@@ -23,7 +23,7 @@ esac
 
 RE='(^|[/ ])copilot( |$)|@github/copilot|copilot-cli'
 dir=${COPILOT_HOME:-$HOME/.copilot}/session-state
-pid=$(agent_find_process "${AI_REVIVE_PANE_PID:?}" "$RE") || exit 1
+pid=$(agent_find_process "${TWR_PANE_PID:?}" "$RE") || exit 1
 cwd=$(proc_cwd "$pid")
 
 # 1. a file under a session directory the process holds open
@@ -31,13 +31,13 @@ while IFS= read -r f; do
 	case $f in "$dir"/*) ;; *) continue ;; esac
 	id=${f#"$dir"/}; id=${id%%/*}
 	[[ $id =~ ^$AGENT_UUID_RE$ ]] || continue
-	agent_emit copilot "copilot --resume $(shell_quote "$id")" "${cwd:-$AI_REVIVE_CWD}" "$id" open-file
+	agent_emit copilot "copilot --resume $(shell_quote "$id")" "${cwd:-$TWR_CWD}" "$id" open-file
 	exit 0
 done < <(proc_open_paths "$pid")
 
 # 2. the session named on the command line (`copilot --resume <id>`, as a restore launches it)
 if id=$(agent_resume_arg "$pid"); then
-	agent_emit copilot "copilot --resume $(shell_quote "$id")" "${cwd:-$AI_REVIVE_CWD}" "$id" resume-argument
+	agent_emit copilot "copilot --resume $(shell_quote "$id")" "${cwd:-$TWR_CWD}" "$id" resume-argument
 	exit 0
 fi
 
@@ -60,11 +60,11 @@ if [ -d "$dir" ] && start=$(proc_start_epoch "$pid"); then
 	done | agent_pick "$start") || best=""
 	if [ -n "$best" ]; then
 		id=$(basename "$best")
-		agent_emit copilot "copilot --resume $(shell_quote "$id")" "${cwd:-$AI_REVIVE_CWD}" "$id" started-after-process
+		agent_emit copilot "copilot --resume $(shell_quote "$id")" "${cwd:-$TWR_CWD}" "$id" started-after-process
 		exit 0
 	fi
 fi
 
 # 4. no session found: relaunch what was typed (a new session)
 args=$(agent_args_after "$pid" "$RE")
-agent_emit copilot "copilot${args:+ $args}" "${cwd:-$AI_REVIVE_CWD}" "" argv
+agent_emit copilot "copilot${args:+ $args}" "${cwd:-$TWR_CWD}" "" argv
