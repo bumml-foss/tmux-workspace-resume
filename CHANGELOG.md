@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.0 — 2026-10-09
+
+- Renamed from ai-revive to tmux-workspace-resume: the command (and `byobu-tmux-workspace-resume`),
+  the Debian package, man pages, systemd units, the config, state and runtime directories, the
+  `.tmux.conf` marker block and the log prefix. Environment variables use the prefix `TWR_`
+  (resumers read `$TWR_PANE_PID`, `$TWR_CWD`, ...). There is no automatic migration: run the old
+  `ai-revive disable`, move `~/.config/ai-revive` and `~/.local/state/ai-revive` to the new name,
+  then run `tmux-workspace-resume enable`.
+- The README covers install and use only; development notes moved to `CONTRIBUTING.md`.
+
 ## 0.1.0 — 2026-09-14
 
 Initial release.

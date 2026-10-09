@@ -1,3 +1,11 @@
+tmux-workspace-resume (0.2.0) unstable; urgency=medium
+
+  * Rename from ai-revive. Commands, package, man pages, systemd units,
+    directories and environment variables (now TWR_*) follow the new name;
+    there is no automatic migration from an ai-revive install.
+
+ -- Benedikt Humml <bumml.foss@proton.me>  Fri, 09 Oct 2026 16:19:38 +0200
+
 tmux-workspace-resume (0.1.0) unstable; urgency=medium
 
   * Initial release: save/restore of tmux and byobu workspaces, resumers for
