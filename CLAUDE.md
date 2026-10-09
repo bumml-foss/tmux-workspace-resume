@@ -1,7 +1,7 @@
 # tmux-workspace-resume
 
 tmux/byobu workspace persistence across reboots, with pluggable resumers (Claude Code by session
-id, ssh, whitelist). Usage, layout and workflows: `README.md`. Plain bash + jq, GPL-3.
+id, ssh, whitelist). Usage: `README.md`; layout and workflows: `CONTRIBUTING.md`. Plain bash + jq, GPL-3.
 
 ## Hard rules
 
