@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Snapshot names come from a single clock reading instead of `date`: the Rust coreutils `date` of
+  Ubuntu 26.04 can pair the milliseconds with the previous second, so names did not always sort by
+  age (and `test-auto-restore.sh` failed intermittently).
+
 ## 0.2.0 — 2026-10-09
 
 - Renamed from ai-revive to tmux-workspace-resume: the command (and `byobu-tmux-workspace-resume`),

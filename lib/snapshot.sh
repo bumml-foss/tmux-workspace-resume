@@ -5,6 +5,15 @@
 
 snapshot_dir() { printf '%s' "$(state_dir)/snapshots"; }
 
+# snapshot_stamp: YYYYmmddTHHMMSS.mmm from a single clock reading. Not date(1): the Rust
+# coreutils date (Ubuntu 26.04) can pair the milliseconds with the previous second, so
+# consecutive names would not sort by age.
+snapshot_stamp() {
+	local t=$EPOCHREALTIME frac
+	frac=${t#*[.,]}
+	printf '%(%Y%m%dT%H%M%S)T.%s' "${t%[.,]*}" "${frac:0:3}"
+}
+
 # snapshot_write: JSON on stdin -> validated file on disk; prints the path. Names carry
 # milliseconds so they are unique and sort by age; the directory lock serialises concurrent
 # savers (timer, hook, key binding, settle save).
@@ -14,8 +23,8 @@ snapshot_write() {
 	mkdir -p "$dir"
 	exec 7>"$dir/.lock"
 	flock 7
-	final=$dir/$(date +%Y%m%dT%H%M%S.%3N).json
-	while [ -e "$final" ]; do sleep 0.01; final=$dir/$(date +%Y%m%dT%H%M%S.%3N).json; done
+	final=$dir/$(snapshot_stamp).json
+	while [ -e "$final" ]; do sleep 0.01; final=$dir/$(snapshot_stamp).json; done
 	tmp=$(mktemp "$dir/.tmp.XXXXXX")
 	if ! jq -e . > "$tmp"; then
 		rm -f "$tmp"
