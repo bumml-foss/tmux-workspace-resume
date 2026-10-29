@@ -48,9 +48,10 @@ waits
 seconds and coalesces a burst of events (what the hooks use).
 Without
 .BR \-\-force ,
-nothing is written while a restore is in progress, and a snapshot from a previous boot is kept
+nothing is written while a restore is in progress, a snapshot from a previous boot is kept
 until a restore has run on the current server (so a freshly started server cannot overwrite
-the workspace that is about to be brought back).
+the workspace that is about to be brought back), and an unchanged workspace only refreshes the
+newest snapshot's modification time instead of writing an identical copy.
 .TP
 .BR restore " [" \-\-dry\-run "] [" \-\-layout\-only "] [" \-\-auto "] [" \fIsnapshot\fR ]
 Rebuild the sessions of

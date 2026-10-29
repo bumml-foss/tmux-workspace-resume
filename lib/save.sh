@@ -79,7 +79,20 @@ save_restore_pending() {
 	[ ! -e "$(restore_marker)" ]
 }
 
-# save_now [--force]: write a snapshot unless a guard says the moment is wrong.
+# save_unchanged JSON: the newest snapshot would restore the same workspace. Compared without
+# what restore never reads and what changes all the time: saved_at, pane titles (agents rewrite
+# theirs constantly), pane commands, and the names of automatically renamed windows.
+save_unchanged() {
+	local last view
+	last=$(snapshot_dir)/last.json
+	[ -e "$last" ] || return 1
+	view='del(.saved_at) | .sessions[].windows[] |= ((if .automatic_rename then del(.name) else . end) | .panes[] |= del(.title, .command))'
+	[ "$(jq -cS "$view" "$last" 2>/dev/null)" = "$(printf '%s' "$1" | jq -cS "$view")" ]
+}
+
+# save_now [--force]: write a snapshot unless a guard says the moment is wrong. An unchanged
+# workspace only refreshes the newest snapshot's mtime, so identical copies do not push older
+# states out of KEEP_SNAPSHOTS; --force writes anyway.
 save_now() {
 	local force=0
 	[ "${1:-}" = "--force" ] && force=1
@@ -91,6 +104,11 @@ save_now() {
 	fi
 	local json
 	if ! json=$(save_collect); then log_debug "no panes found; nothing to save"; return 0; fi
+	if [ $force -eq 0 ] && save_unchanged "$json"; then
+		touch "$(readlink -f "$(snapshot_dir)/last.json")"
+		log_debug "workspace unchanged since $(basename "$(readlink -f "$(snapshot_dir)/last.json")"); not writing a new snapshot"
+		return 0
+	fi
 	local file; file=$(printf '%s' "$json" | snapshot_write) || return 1
 	log_info "saved $(snapshot_summary "$file") -> $file"
 }

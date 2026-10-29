@@ -7,6 +7,9 @@
   age (and `test-auto-restore.sh` failed intermittently).
 - `enable` and `status` accept a degraded systemd user manager (one failed unit anywhere); they used
   to report "no systemd user session" and skip the timer.
+- `save` writes no new snapshot when the workspace would restore the same way (pane titles, pane
+  commands and automatic window names are ignored); it only refreshes the newest snapshot's mtime,
+  so idle saves no longer push older states out of `KEEP_SNAPSHOTS`. `--force` still writes.
 
 ## 0.2.0 — 2026-10-09
 

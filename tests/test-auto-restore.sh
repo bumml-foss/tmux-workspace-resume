@@ -69,7 +69,7 @@ TWR_NO_RESTORE=1 "$AR" restore --auto
 [ "$(basename "$(last_snapshot)")" != "older3.json" ] || fail "a decision not to restore must let saves proceed"
 
 # two saves in quick succession get distinct, correctly ordered files
-"$AR" save; "$AR" save
+"$AR" save --force; "$AR" save --force
 n=$(find "$(snapshot_dir)" -maxdepth 1 -name '*.json' -type f | wc -l)
 [ "$n" -ge 2 ] || fail "concurrent-safe naming"
 [ "$(basename "$(last_snapshot)")" = "$(find "$(snapshot_dir)" -maxdepth 1 -name '2*.json' -type f -printf '%f\n' | sort | tail -1)" ] || fail "last.json must be the newest by name"
