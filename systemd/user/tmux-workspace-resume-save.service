@@ -4,4 +4,4 @@ Documentation=man:tmux-workspace-resume(1)
 
 [Service]
 Type=oneshot
-ExecStart=/usr/bin/tmux-workspace-resume save --quiet
+ExecStart=/usr/bin/tmux-workspace-resume save --quiet --timer

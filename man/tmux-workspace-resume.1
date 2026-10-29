@@ -40,12 +40,16 @@ and
 .BR "tmux-workspace-resume shutdown" .
 .SH COMMANDS
 .TP
-.BR save " [" \-\-debounce "] [" \-\-force ]
+.BR save " [" \-\-debounce "] [" \-\-force "] [" \-\-timer ]
 Write a snapshot of the running server.
 .B \-\-debounce
 waits
 .B SAVE_DEBOUNCE_S
 seconds and coalesces a burst of events (what the hooks use).
+.B \-\-timer
+marks the periodic save of the systemd timer: with
+.BR TIMER_SAVE=after\-input ,
+it is skipped unless an attached client had input since the newest snapshot.
 Without
 .BR \-\-force ,
 nothing is written while a restore is in progress, a snapshot from a previous boot is kept

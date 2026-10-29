@@ -5,12 +5,13 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # shellcheck disable=SC2034  # the keys are read by the other lib files
 
-TWR_CONFIG_KEYS="AUTO_RESTORE SAVE_INTERVAL_MIN SAVE_DEBOUNCE_S RESTORE_SETTLE_S KEEP_SNAPSHOTS \
+TWR_CONFIG_KEYS="AUTO_RESTORE SAVE_INTERVAL_MIN TIMER_SAVE SAVE_DEBOUNCE_S RESTORE_SETTLE_S KEEP_SNAPSHOTS \
 RESUME_COMMANDS RESTORE_DELAY_MS RESTORE_STAGGER_MS SHELL_WAIT_S KEY_SAVE KEY_RESTORE TMUX_SOCKET LOG_LEVEL"
 
 config_load() {
 	AUTO_RESTORE=reboot          # always | reboot | never
 	SAVE_INTERVAL_MIN=5          # systemd user timer period
+	TIMER_SAVE=always            # always | after-input (skip the timer save without client input)
 	SAVE_DEBOUNCE_S=3            # coalesce hook-triggered saves
 	RESTORE_SETTLE_S=15          # re-save this long after a restore (0 = never)
 	KEEP_SNAPSHOTS=20

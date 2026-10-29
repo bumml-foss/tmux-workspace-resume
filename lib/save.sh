@@ -90,6 +90,19 @@ save_unchanged() {
 	[ "$(jq -cS "$view" "$last" 2>/dev/null)" = "$(printf '%s' "$1" | jq -cS "$view")" ]
 }
 
+# save_input_since_last: an attached client had input after the newest snapshot was written
+# (or confirmed unchanged), or there is no snapshot yet.
+save_input_since_last() {
+	local last t a newest=0
+	last=$(snapshot_dir)/last.json
+	[ -e "$last" ] || return 0
+	t=$(stat -Lc %Y "$last")
+	while IFS= read -r a; do
+		if [ "${a:-0}" -gt "$newest" ]; then newest=$a; fi
+	done < <(tmux_cmd list-clients -F '#{client_activity}' 2>/dev/null)
+	[ "$newest" -gt "$t" ]
+}
+
 # save_now [--force]: write a snapshot unless a guard says the moment is wrong. An unchanged
 # workspace only refreshes the newest snapshot's mtime, so identical copies do not push older
 # states out of KEEP_SNAPSHOTS; --force writes anyway.
@@ -131,16 +144,21 @@ save_debounced() {
 }
 
 cmd_save() {
-	local debounce=0 force=0
+	local debounce=0 force=0 timer=0
 	while [ $# -gt 0 ]; do
 		case $1 in
 			--debounce) debounce=1 ;;
 			--force) force=1 ;;
+			--timer) timer=1 ;;
 			-q|--quiet) quiet_on ;;
-			*) die "usage: tmux-workspace-resume save [--debounce] [--force]" ;;
+			*) die "usage: tmux-workspace-resume save [--debounce] [--force] [--timer]" ;;
 		esac
 		shift
 	done
+	if [ $timer -eq 1 ] && [ "${TIMER_SAVE:-always}" = after-input ] && ! save_input_since_last; then
+		log_debug "no client input since the last snapshot; skipping the timer save (TIMER_SAVE=after-input)"
+		return 0
+	fi
 	if [ $debounce -eq 1 ]; then
 		save_debounced
 	elif [ $force -eq 1 ]; then

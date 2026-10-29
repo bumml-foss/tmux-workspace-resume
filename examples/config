@@ -11,6 +11,13 @@
 # Period of the systemd user timer, in minutes. `tmux-workspace-resume enable` applies a change.
 #SAVE_INTERVAL_MIN=5
 
+# What the timer does when it fires:
+#   always       save (default)
+#   after-input  save only if an attached client had input since the newest snapshot; changes
+#                tmux has no hook for (cd, a program starting or exiting) nearly always follow
+#                typing, and hooks still save every window, split, rename and layout change
+#TIMER_SAVE=always
+
 # Seconds to wait after a tmux event (new window, split, rename, ...) before saving, so a burst
 # of changes produces one snapshot.
 #SAVE_DEBOUNCE_S=3
