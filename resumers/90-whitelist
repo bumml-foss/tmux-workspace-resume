@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
-# tmux-workspace-resume resumer: generic whitelist. Re-runs the command line of a direct child of the pane's
-# shell whose program name is listed in RESUME_COMMANDS (config), e.g. "vim htop tail".
+# tmux-workspace-resume resumer: generic whitelist. Re-runs the pane's foreground job when every program
+# in it is listed in RESUME_COMMANDS (config), e.g. "vim htop tail": a single command or a pipeline,
+# also when started from a nested shell. `sudo <program>` counts as <program>. Without such a job, a
+# listed direct child of the pane's shell (a suspended vim) is re-run.
 # SPDX-License-Identifier: GPL-3.0-or-later
 set -euo pipefail
 # shellcheck source=../lib/common.sh
@@ -14,15 +16,87 @@ esac
 
 read -ra allowed <<< "${TWR_RESUME_COMMANDS:-}"
 [ ${#allowed[@]} -gt 0 ] || exit 1
-for child in $(children_of "${TWR_PANE_PID:?}"); do
-	name=$(proc_argv0 "$child")
-	[ -n "$name" ] || continue
-	for a in "${allowed[@]}"; do
-		[ "$a" = "$name" ] || continue
-		cmd=$(proc_cmdline_to_shell "$child")
-		[ -n "$cmd" ] || continue
-		jq -cn --arg cmd "$cmd" --arg name "$name" '{cmd: $cmd, meta: {program: $name}}'
-		exit 0
+by_id=${TWR_SERIAL_BY_ID:-/dev/serial/by-id}
+
+proc_pgrp() { sed 's/^.*) //' "/proc/$1/stat" 2>/dev/null | awk '{print $3}'; }
+proc_tpgid() { sed 's/^.*) //' "/proc/$1/stat" 2>/dev/null | awk '{print $6}'; }
+
+is_allowed() {
+	local a
+	for a in "${allowed[@]}"; do [ "$a" = "$1" ] && return 0; done
+	return 1
+}
+
+# program_name ARGV...: the program that decides; for sudo, the command after sudo's options.
+program_name() {
+	local name=${1##*/}
+	if [ "$name" != sudo ]; then printf '%s' "$name"; return 0; fi
+	shift
+	while [ $# -gt 0 ]; do
+		case $1 in
+			--) shift; break ;;
+			--*) shift ;;
+			-*[Dgu]) shift; if [ $# -gt 0 ]; then shift; fi ;;
+			-*) shift ;;
+			*) break ;;
+		esac
 	done
+	if [ $# -gt 0 ]; then printf '%s' "${1##*/}"; fi
+}
+
+# stable_arg ARG: a serial device path (also after "=") becomes its /dev/serial/by-id link, so a
+# reboot that renumbers ttyUSB*/ttyACM* devices cannot point the command at another device.
+stable_arg() {
+	local arg=$1 pre="" dev link
+	case $arg in *=/*) pre=${arg%%=*}=; arg=${arg#*=} ;; esac
+	if [ "${arg:0:1}" = / ] && [ -d "$by_id" ] && dev=$(readlink -f -- "$arg" 2>/dev/null); then
+		for link in "$by_id"/*; do
+			if [ "$(readlink -f -- "$link")" = "$dev" ]; then printf '%s' "$pre$link"; return 0; fi
+		done
+	fi
+	printf '%s' "$pre$arg"
+}
+
+# job_cmd PID...: the processes of a job as one shell command line, or nothing when a program is
+# not listed or a stdin/stdout is redirected (the redirection is not visible to re-run).
+job_cmd() {
+	local tty pid fd target out="" argv arg
+	tty=$(readlink "/proc/$TWR_PANE_PID/fd/0" 2>/dev/null) || tty=""
+	for pid in "$@"; do
+		argv=()
+		while IFS= read -r -d '' arg; do argv+=("$arg"); done < "/proc/$pid/cmdline"
+		if [ ${#argv[@]} -eq 0 ] || ! is_allowed "$(program_name "${argv[@]}")"; then return 0; fi
+		for fd in 0 1; do
+			# unreadable for a process of another user (sudo): its fds cannot be checked
+			target=$(readlink "/proc/$pid/fd/$fd" 2>/dev/null) || continue
+			case $target in pipe:*|"$tty") ;; *) return 0 ;; esac
+		done
+		[ -z "$out" ] || out+=" | "
+		for arg in "${argv[@]}"; do out+="$(shell_quote "$(stable_arg "$arg")") "; done
+		out=${out% }
+	done
+	printf '%s' "$out"
+}
+
+emit() { jq -cn --arg cmd "$1" --arg name "$2" '{cmd: $cmd, meta: {program: $name}}'; exit 0; }
+
+# The foreground job: the processes of the terminal's foreground process group whose parent is
+# outside it (the pipeline members, not what they spawn), in pipeline order.
+fg=$(proc_tpgid "${TWR_PANE_PID:?}")
+if [ -n "$fg" ] && [ "$fg" != "$(proc_pgrp "$TWR_PANE_PID")" ]; then
+	members=()
+	for pid in $(pgrep -g "$fg" 2>/dev/null | sort -n); do
+		[ "$(proc_pgrp "$(proc_ppid "$pid")")" = "$fg" ] || members+=("$pid")
+	done
+	if [ ${#members[@]} -gt 0 ]; then
+		cmd=$(job_cmd "${members[@]}")
+		[ -z "$cmd" ] || emit "$cmd" "$(proc_argv0 "${members[0]}")"
+	fi
+fi
+
+for child in $(children_of "$TWR_PANE_PID"); do
+	[ "$(proc_pgrp "$child")" != "$fg" ] || continue
+	cmd=$(job_cmd "$child")
+	[ -z "$cmd" ] || emit "$cmd" "$(proc_argv0 "$child")"
 done
 exit 1

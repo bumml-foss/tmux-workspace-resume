@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# Fake `ssh` for the test-suite: blocks like a session. Not a symlink to tail: the Rust coreutils
+# multi-call binary refuses to run under another file name. exec -a keeps argv[0] "ssh", which
+# is what #{pane_current_command} and the resumer read.
+exec -a ssh tail "$@"

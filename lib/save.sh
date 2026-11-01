@@ -79,7 +79,59 @@ save_restore_pending() {
 	[ ! -e "$(restore_marker)" ]
 }
 
-# save_now [--force]: write a snapshot unless a guard says the moment is wrong.
+# save_unchanged JSON: the newest snapshot would restore the same workspace. Compared without
+# what changes all the time: saved_at, pane titles (agents rewrite theirs constantly), pane
+# commands, and the names of automatically renamed windows; the in-place rewrite of an
+# unchanged save keeps those current.
+save_unchanged() {
+	local last view
+	last=$(snapshot_dir)/last.json
+	[ -e "$last" ] || return 1
+	view='del(.saved_at) | .sessions[].windows[] |= ((if .automatic_rename then del(.name) else . end) | .panes[] |= del(.title, .command))'
+	[ "$(jq -cS "$view" "$last" 2>/dev/null)" = "$(printf '%s' "$1" | jq -cS "$view")" ]
+}
+
+# save_input_since_last: an attached client had input after the newest snapshot was written
+# (or confirmed unchanged), or there is no snapshot yet.
+save_input_since_last() {
+	local last t a newest=0
+	last=$(snapshot_dir)/last.json
+	[ -e "$last" ] || return 0
+	t=$(stat -Lc %Y "$last")
+	while IFS= read -r a; do
+		if [ "${a:-0}" -gt "$newest" ]; then newest=$a; fi
+	done < <(tmux_cmd list-clients -F '#{client_activity}' 2>/dev/null)
+	[ "$newest" -gt "$t" ]
+}
+
+# save_scrollback JSON: capture the last SCROLLBACK_LINES lines of every pane in the snapshot
+# into a new directory, one <pane id>.gz each, and print its path; nothing when SCROLLBACK_LINES
+# is 0. A pane in a full-screen program contributes the screen it returns to, not the program's.
+save_scrollback() {
+	local lines=${SCROLLBACK_LINES:-0} dir id alt hist text
+	[ "$lines" -gt 0 ] 2>/dev/null || return 0
+	mkdir -p "$(snapshot_dir)"
+	dir=$(mktemp -d "$(snapshot_dir)/.tmp.XXXXXX")
+	while IFS= read -r id; do
+		read -r alt hist < <(tmux_cmd display -p -t "$id" '#{alternate_on} #{history_size}' 2>/dev/null) || continue
+		# -E -1 without any history would capture the first visible line instead
+		text=$(
+			if [ "$alt" != 1 ]; then
+				tmux_cmd capture-pane -p -e -J -t "$id" -S "-$lines"
+			else
+				if [ "${hist:-0}" -gt 0 ]; then tmux_cmd capture-pane -p -e -J -t "$id" -S "-$lines" -E -1; fi
+				tmux_cmd capture-pane -p -e -J -a -t "$id"
+			fi 2>/dev/null
+		) || true
+		[ -n "$text" ] || continue
+		printf '%s\n\033[0m' "$text" | gzip > "$dir/${id#%}.gz"
+	done < <(printf '%s' "$1" | jq -r '.sessions[].windows[].panes[].id')
+	printf '%s' "$dir"
+}
+
+# save_now [--force]: write a snapshot unless a guard says the moment is wrong. An unchanged
+# workspace rewrites the newest snapshot in place instead, so identical copies do not push older
+# states out of KEEP_SNAPSHOTS; --force writes anyway.
 save_now() {
 	local force=0
 	[ "${1:-}" = "--force" ] && force=1
@@ -89,10 +141,18 @@ save_now() {
 		log_info "the snapshot is from a previous boot and no restore ran on this server yet; keeping it (tmux-workspace-resume restore, or save --force)"
 		return 0
 	fi
-	local json
+	local json scrollback
 	if ! json=$(save_collect); then log_debug "no panes found; nothing to save"; return 0; fi
-	local file; file=$(printf '%s' "$json" | snapshot_write) || return 1
+	scrollback=$(save_scrollback "$json")
+	if [ $force -eq 0 ] && save_unchanged "$json"; then
+		printf '%s' "$json" | snapshot_refresh "$scrollback"
+		log_debug "workspace unchanged since $(basename "$(readlink -f "$(snapshot_dir)/last.json")"); not writing a new snapshot"
+		run_hook POST_SAVE "$(readlink -f "$(snapshot_dir)/last.json")"
+		return 0
+	fi
+	local file; file=$(printf '%s' "$json" | snapshot_write "$scrollback") || return 1
 	log_info "saved $(snapshot_summary "$file") -> $file"
+	run_hook POST_SAVE "$file"
 }
 
 # save_debounced: coalesce a burst of hook events into one save after SAVE_DEBOUNCE_S.
@@ -113,16 +173,21 @@ save_debounced() {
 }
 
 cmd_save() {
-	local debounce=0 force=0
+	local debounce=0 force=0 timer=0
 	while [ $# -gt 0 ]; do
 		case $1 in
 			--debounce) debounce=1 ;;
 			--force) force=1 ;;
+			--timer) timer=1 ;;
 			-q|--quiet) quiet_on ;;
-			*) die "usage: tmux-workspace-resume save [--debounce] [--force]" ;;
+			*) die "usage: tmux-workspace-resume save [--debounce] [--force] [--timer]" ;;
 		esac
 		shift
 	done
+	if [ $timer -eq 1 ] && [ "${TIMER_SAVE:-always}" = after-input ] && ! save_input_since_last; then
+		log_debug "no client input since the last snapshot; skipping the timer save (TIMER_SAVE=after-input)"
+		return 0
+	fi
 	if [ $debounce -eq 1 ]; then
 		save_debounced
 	elif [ $force -eq 1 ]; then

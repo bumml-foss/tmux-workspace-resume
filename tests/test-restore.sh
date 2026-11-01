@@ -9,6 +9,7 @@ T new-window -t work -n shells -c "$HOME/proj-a"
 T split-window -t work:1 -v -c "$HOME/proj-b"
 T split-window -t work:1 -h -c "$HOME"
 T select-layout -t work:1 main-vertical
+T select-pane -t work:1.1 -T "build log"
 T new-window -t work -n three -c "$HOME/proj-b"
 T select-window -t work:1
 "$AR" save
@@ -25,6 +26,7 @@ assert_eq "$after" "$before" "windows/panes/cwds"
 assert_eq "$(layout_shape "$(T display -p -t work:1 "#{window_layout}")")" "$(layout_shape "$layout_before")" "layout shape"
 assert_eq "$(T display -p -t work '#{window_index}')" 1 "active window"
 assert_eq "$(T display -p -t work:1 '#{automatic-rename}')" 0 "manual window name keeps automatic-rename off"
+assert_eq "$(T display -p -t work:1.1 '#{pane_title}')" "build log" "pane title"
 
 # idempotent: a second restore changes nothing
 "$AR" restore

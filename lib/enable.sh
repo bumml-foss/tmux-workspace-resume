@@ -51,8 +51,16 @@ block_remove() {
 }
 
 # ---------------------------------------------------------------- systemd user units
+# systemd_available: a user manager is up. is-system-running also exits non-zero for "degraded"
+# (one failed unit anywhere), which still runs timers, so the state is compared instead.
 systemd_available() {
-	[ "${TWR_NO_SYSTEMD:-0}" != 1 ] && command -v systemctl >/dev/null 2>&1 && systemctl --user is-system-running >/dev/null 2>&1
+	local state
+	if [ "${TWR_NO_SYSTEMD:-0}" = 1 ] || ! command -v systemctl >/dev/null 2>&1; then return 1; fi
+	state=$(systemctl --user is-system-running 2>/dev/null) || true
+	case $state in
+		running|degraded|starting) return 0 ;;
+		*) return 1 ;;
+	esac
 }
 user_unit_dir() { printf '%s/systemd/user' "${XDG_CONFIG_HOME:-$HOME/.config}"; }
 # systemd_install_units: use the packaged units when systemd can see them, otherwise generate

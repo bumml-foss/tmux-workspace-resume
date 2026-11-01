@@ -45,9 +45,33 @@ tmux-workspace-resume restore --dry-run    # what a restore would do
 tmux-workspace-resume reboot               # save, then reboot: the most exact snapshot
 ```
 
+## Coming from tmux-resurrect
+
+[tmux-resurrect](https://github.com/tmux-plugins/tmux-resurrect), usually paired with
+[tmux-continuum](https://github.com/tmux-plugins/tmux-continuum) for automatic saves, is the
+long-standing plugin for this, and works on macOS and old tmux versions, which this one does not.
+What tmux-workspace-resume adds:
+
+- agents resume their own conversation by session id, instead of starting a new one
+- saves on every window, split, rename and layout change, and on a timer that runs while detached
+- a snapshot from before a reboot is never overwritten before it was restored
+- layouts are scaled to the terminal they are restored into
+- pipelines, `sudo <program>` and serial consoles (by their `/dev/serial/by-id` name) come back
+
+Your last tmux-resurrect save, with its pane contents, can be brought over:
+
+```sh
+tmux-workspace-resume import               # reads ~/.local/share/tmux/resurrect/last (or ~/.tmux/...)
+tmux-workspace-resume restore <snapshot>   # the command `import` printed
+```
+
+Then remove tmux-resurrect and tmux-continuum from `~/.tmux.conf`: both plugins bind
+`prefix + Ctrl-s` / `Ctrl-r`, and continuum would keep saving and restoring on its own.
+
 ## Limitations
 
-- Programs are started again, not continued: scrollback and a running agent's current turn are lost.
+- Programs are started again, not continued: a running agent's current turn is lost, and so is
+  the scrollback unless `SCROLLBACK_LINES` is set.
 - The Codex, Gemini and Copilot resumers are tested against fake programs only.
 - The save at shutdown is best effort; the last snapshot is at most 5 minutes old.
 

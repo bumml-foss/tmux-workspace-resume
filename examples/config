@@ -11,6 +11,13 @@
 # Period of the systemd user timer, in minutes. `tmux-workspace-resume enable` applies a change.
 #SAVE_INTERVAL_MIN=5
 
+# What the timer does when it fires:
+#   always       save (default)
+#   after-input  save only if an attached client had input since the newest snapshot; changes
+#                tmux has no hook for (cd, a program starting or exiting) nearly always follow
+#                typing, and hooks still save every window, split, rename and layout change
+#TIMER_SAVE=always
+
 # Seconds to wait after a tmux event (new window, split, rename, ...) before saving, so a burst
 # of changes produces one snapshot.
 #SAVE_DEBOUNCE_S=3
@@ -21,8 +28,15 @@
 # Snapshots kept in $XDG_STATE_HOME/tmux-workspace-resume/snapshots/ (older ones are deleted).
 #KEEP_SNAPSHOTS=20
 
+# Lines of history saved per pane with each snapshot and printed above the shell's prompt on
+# restore (0 = off). The text is stored gzipped beside the snapshot, readable only by you; it can
+# hold whatever the panes showed, passwords and tokens included.
+#SCROLLBACK_LINES=0
+
 # Programs the whitelist resumer relaunches with their original arguments (space separated,
-# matched against the program name). Claude Code and ssh have their own resumers.
+# matched against the program name). A pipeline comes back when every program in it is listed;
+# `sudo <program>` needs only <program>, so never list sudo itself. Claude Code and ssh have
+# their own resumers.
 #RESUME_COMMANDS="vi vim nvim emacs nano man less more tail top htop"
 
 # Restore timing: wait for the pane's shell, then RESTORE_DELAY_MS before typing the command,
@@ -38,6 +52,13 @@
 # Socket of the tmux server to snapshot, for setups with a non-default TMUX_TMPDIR. Leave empty
 # for the default socket (what byobu uses).
 #TMUX_SOCKET=
+
+# Hooks: command lines run by bash with the snapshot's path as $1 (output goes to the log; a
+# failing hook is logged, the save or restore carries on). POST_SAVE runs after every save,
+# PRE_RESTORE before a restore changes anything, POST_RESTORE once the programs were relaunched.
+#HOOK_POST_SAVE='cp "$1" ~/backup/tmux-last.json'
+#HOOK_PRE_RESTORE=
+#HOOK_POST_RESTORE='notify-send "tmux workspace restored"'
 
 # debug | info | warn | error — for the log in $XDG_STATE_HOME/tmux-workspace-resume/tmux-workspace-resume.log
 #LOG_LEVEL=info

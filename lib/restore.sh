@@ -9,6 +9,21 @@ say() {
 
 _ms_sleep() { [ "${1:-0}" -gt 0 ] 2>/dev/null && sleep "$(awk "BEGIN{print $1/1000}")"; return 0; }
 
+# A pane with saved scrollback starts as `bash -c "$RESTORE_PANE_START" _ FILE SHELL COMMAND`:
+# print the scrollback, then exec what tmux would have started (COMMAND through SHELL, or
+# SHELL as a login shell), so the shell's prompt comes up below it.
+RESTORE_PANE_START='gzip -dc -- "$1" 2>/dev/null; [ -z "$3" ] || exec "$2" -c "$3"; exec -a "-${2##*/}" "$2"'
+
+# restore_pane_argv SESSION FILE: set RESTORE_PANE_ARGV to the command that starts a pane with
+# the scrollback in FILE; empty (the default pane) when FILE does not exist.
+restore_pane_argv() {
+	local US=$'\x1f' shell cmd
+	RESTORE_PANE_ARGV=()
+	[ -r "$2" ] || return 0
+	IFS=$US read -r shell cmd < <(tmux_cmd display -p -t "=$1:" '#{default-shell}	#{default-command}' | tr '\t' '\037')
+	RESTORE_PANE_ARGV=(bash -c "$RESTORE_PANE_START" twr-scrollback "$2" "$shell" "$cmd")
+}
+
 # restore_wait_idle PANE: until the pane's shell has no children (prompt is up), at most SHELL_WAIT_S.
 restore_wait_idle() {
 	local n=$(( ${SHELL_WAIT_S:-10} * 10 ))
@@ -44,7 +59,7 @@ restore_apply_layout() {
 # whose program is running, and touching it would launch that program twice). The placeholder
 # is moved out of the way, and at the end removed if idle, kept after the last window if not.
 restore_session() {
-	local file=$1 i=$2 dry=$3 layout_only=$4 US=$'\x1f'
+	local file=$1 i=$2 dry=$3 layout_only=$4 US=$'\x1f' scrollback=${1%.json}.scrollback
 	local sess nwin placeholder="" placeholder_idx="" placeholder_ours=0 created=0 maxidx size taken=0
 	sess=$(jq -r ".sessions[$i].name" "$file")
 	nwin=$(jq ".sessions[$i].windows | length" "$file")
@@ -83,7 +98,7 @@ restore_session() {
 		fi
 	fi
 
-	local w widx wname wauto wlayout _wactive npanes wid last p pcwd pnew cwd0 args pane_ids line new_id old_idx
+	local w widx wname wauto wlayout _wactive npanes wid last p pcwd pid pnew ptitle cwd0 pid0 args pane_ids line new_id old_idx
 	for ((w = 0; w < nwin; w++)); do
 		IFS=$US read -r widx wname wauto wlayout _wactive npanes < <(jq -r ".sessions[$i].windows[$w]
 			| [.index, .name, (.automatic_rename|tostring), .layout, (.active|tostring), (.panes|length)] | join(\"\\u001f\")" "$file")
@@ -91,7 +106,7 @@ restore_session() {
 			say "  window $widx '$wname': already exists, skipped"
 			continue
 		fi
-		cwd0=$(jq -r ".sessions[$i].windows[$w].panes[0].cwd" "$file")
+		IFS=$US read -r cwd0 pid0 < <(jq -r ".sessions[$i].windows[$w].panes[0] | [.cwd, .id] | join(\"\\u001f\")" "$file")
 		[ -d "$cwd0" ] || { log_warn "window $widx: directory '$cwd0' is gone, using \$HOME"; cwd0=$HOME; }
 		say "  window $widx '$wname' ($npanes panes)"
 		if [ "$dry" = 1 ]; then
@@ -99,6 +114,8 @@ restore_session() {
 		else
 			args=(new-window -d -P -F '#{window_id}' -t "=$sess:$widx" -c "$cwd0")
 			[ "$wauto" = false ] && args+=(-n "$wname")
+			restore_pane_argv "$sess" "$scrollback/${pid0#%}.gz"
+			args+=("${RESTORE_PANE_ARGV[@]}")
 			if ! wid=$(tmux_cmd "${args[@]}" 2>/dev/null); then
 				log_warn "window $widx '$wname': could not create it; skipping"
 				continue
@@ -109,10 +126,11 @@ restore_session() {
 		# Split from the newest pane each time: tmux inserts the new pane after its target, so the
 		# pane list order equals the saved index order, which is what select-layout maps cells onto.
 		for ((p = 1; p < npanes; p++)); do
-			pcwd=$(jq -r ".sessions[$i].windows[$w].panes[$p].cwd" "$file")
+			IFS=$US read -r pcwd pid < <(jq -r ".sessions[$i].windows[$w].panes[$p] | [.cwd, .id] | join(\"\\u001f\")" "$file")
 			[ -d "$pcwd" ] || { log_warn "window $widx pane $p: directory '$pcwd' is gone, using \$HOME"; pcwd=$HOME; }
 			[ "$dry" = 1 ] && continue
-			if ! last=$(tmux_cmd split-window -d -P -F '#{pane_id}' -t "$last" -c "$pcwd" 2>/dev/null); then
+			restore_pane_argv "$sess" "$scrollback/${pid#%}.gz"
+			if ! last=$(tmux_cmd split-window -d -P -F '#{pane_id}' -t "$last" -c "$pcwd" "${RESTORE_PANE_ARGV[@]}" 2>/dev/null); then
 				log_warn "window $widx: could not create pane $p (window too small?); restoring the rest"
 				break
 			fi
@@ -130,9 +148,12 @@ restore_session() {
 			while IFS= read -r line; do pane_ids+=("$line"); done < <(tmux_cmd list-panes -t "$wid" -F '#{pane_id}')
 		fi
 		for ((p = 0; p < npanes; p++)); do
-			IFS=$US read -r old_idx pcwd pnew < <(jq -r ".sessions[$i].windows[$w].panes[$p]
-				| [(.index|tostring), (.restore_cwd // .cwd), (.restore_cmd // \"\")] | join(\"\\u001f\")" "$file")
+			IFS=$US read -r old_idx pcwd pnew ptitle < <(jq -r ".sessions[$i].windows[$w].panes[$p]
+				| [(.index|tostring), (.restore_cwd // .cwd), (.restore_cmd // \"\"), (.title // \"\")] | join(\"\\u001f\")" "$file")
 			new_id=${pane_ids[$p]:-"(pane $p)"}
+			if [ "$dry" != 1 ] && [ -n "$ptitle" ]; then
+				tmux_cmd select-pane -t "$new_id" -T "$ptitle"
+			fi
 			if [ "$dry" != 1 ] && jq -e ".sessions[$i].windows[$w].panes[$p].active" "$file" >/dev/null; then
 				tmux_cmd select-pane -t "$new_id"
 			fi
@@ -193,6 +214,7 @@ restore_from_file() {
 		# held until this process exits; save_now skips while it is held
 		exec 8>"$(restore_lock_file)"
 		flock -n 8 || die "another restore is running"
+		run_hook PRE_RESTORE "$file"
 	fi
 	nsess=$(jq '.sessions | length' "$file")
 	for ((i = 0; i < nsess; i++)); do
@@ -202,6 +224,7 @@ restore_from_file() {
 		restore_send_commands
 		touch "$(restore_marker)"
 		flock -u 8
+		run_hook POST_RESTORE "$file"
 		if [ "$layout_only" != 1 ] && [ "${RESTORE_SETTLE_S:-0}" -gt 0 ] 2>/dev/null; then
 			setsid -f bash -c "sleep $RESTORE_SETTLE_S; exec \"\$0\" save --quiet" "$TWR_BIN" </dev/null >/dev/null 2>&1 || true
 		fi
