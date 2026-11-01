@@ -80,8 +80,9 @@ save_restore_pending() {
 }
 
 # save_unchanged JSON: the newest snapshot would restore the same workspace. Compared without
-# what restore never reads and what changes all the time: saved_at, pane titles (agents rewrite
-# theirs constantly), pane commands, and the names of automatically renamed windows.
+# what changes all the time: saved_at, pane titles (agents rewrite theirs constantly), pane
+# commands, and the names of automatically renamed windows; the in-place rewrite of an
+# unchanged save keeps those current.
 save_unchanged() {
 	local last view
 	last=$(snapshot_dir)/last.json
@@ -129,8 +130,8 @@ save_scrollback() {
 }
 
 # save_now [--force]: write a snapshot unless a guard says the moment is wrong. An unchanged
-# workspace only refreshes the newest snapshot's mtime and scrollback, so identical copies do
-# not push older states out of KEEP_SNAPSHOTS; --force writes anyway.
+# workspace rewrites the newest snapshot in place instead, so identical copies do not push older
+# states out of KEEP_SNAPSHOTS; --force writes anyway.
 save_now() {
 	local force=0
 	[ "${1:-}" = "--force" ] && force=1
@@ -144,7 +145,7 @@ save_now() {
 	if ! json=$(save_collect); then log_debug "no panes found; nothing to save"; return 0; fi
 	scrollback=$(save_scrollback "$json")
 	if [ $force -eq 0 ] && save_unchanged "$json"; then
-		snapshot_refresh "$scrollback"
+		printf '%s' "$json" | snapshot_refresh "$scrollback"
 		log_debug "workspace unchanged since $(basename "$(readlink -f "$(snapshot_dir)/last.json")"); not writing a new snapshot"
 		return 0
 	fi

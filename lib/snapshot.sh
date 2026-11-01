@@ -42,15 +42,17 @@ snapshot_write() {
 	printf '%s' "$final"
 }
 
-# snapshot_refresh [SCROLLBACK_DIR]: the workspace is unchanged; mark the newest snapshot as
-# current and replace its scrollback with SCROLLBACK_DIR.
+# snapshot_refresh [SCROLLBACK_DIR]: JSON on stdin; the workspace is unchanged, so the newest
+# snapshot is rewritten in place (pane titles and commands stay current without a new file),
+# and its scrollback is replaced with SCROLLBACK_DIR.
 snapshot_refresh() {
-	local dir last
+	local dir last tmp
 	dir=$(snapshot_dir)
 	exec 7>"$dir/.lock"
 	flock 7
 	last=$(readlink -f "$dir/last.json")
-	touch "$last"
+	tmp=$(mktemp "$dir/.tmp.XXXXXX")
+	if jq -e . > "$tmp"; then mv "$tmp" "$last"; else rm -f "$tmp"; touch "$last"; fi
 	if [ -n "${1:-}" ]; then
 		rm -rf "${last%.json}.scrollback"
 		mv "$1" "${last%.json}.scrollback"

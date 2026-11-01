@@ -98,7 +98,7 @@ restore_session() {
 		fi
 	fi
 
-	local w widx wname wauto wlayout _wactive npanes wid last p pcwd pid pnew cwd0 pid0 args pane_ids line new_id old_idx
+	local w widx wname wauto wlayout _wactive npanes wid last p pcwd pid pnew ptitle cwd0 pid0 args pane_ids line new_id old_idx
 	for ((w = 0; w < nwin; w++)); do
 		IFS=$US read -r widx wname wauto wlayout _wactive npanes < <(jq -r ".sessions[$i].windows[$w]
 			| [.index, .name, (.automatic_rename|tostring), .layout, (.active|tostring), (.panes|length)] | join(\"\\u001f\")" "$file")
@@ -148,9 +148,12 @@ restore_session() {
 			while IFS= read -r line; do pane_ids+=("$line"); done < <(tmux_cmd list-panes -t "$wid" -F '#{pane_id}')
 		fi
 		for ((p = 0; p < npanes; p++)); do
-			IFS=$US read -r old_idx pcwd pnew < <(jq -r ".sessions[$i].windows[$w].panes[$p]
-				| [(.index|tostring), (.restore_cwd // .cwd), (.restore_cmd // \"\")] | join(\"\\u001f\")" "$file")
+			IFS=$US read -r old_idx pcwd pnew ptitle < <(jq -r ".sessions[$i].windows[$w].panes[$p]
+				| [(.index|tostring), (.restore_cwd // .cwd), (.restore_cmd // \"\"), (.title // \"\")] | join(\"\\u001f\")" "$file")
 			new_id=${pane_ids[$p]:-"(pane $p)"}
+			if [ "$dry" != 1 ] && [ -n "$ptitle" ]; then
+				tmux_cmd select-pane -t "$new_id" -T "$ptitle"
+			fi
 			if [ "$dry" != 1 ] && jq -e ".sessions[$i].windows[$w].panes[$p].active" "$file" >/dev/null; then
 				tmux_cmd select-pane -t "$new_id"
 			fi

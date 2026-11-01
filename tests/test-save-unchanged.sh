@@ -18,6 +18,8 @@ assert_eq "$(last_snapshot)" "$first" "last.json must stay on the existing snaps
 T select-pane -t main:0 -T "an agent rewriting its title"
 "$AR" -q save
 assert_eq "$(count)" 1 "a pane title change is not a workspace change"
+assert_json "$(last_snapshot)" '.sessions[0].windows[0].panes[0].title == "an agent rewriting its title"' \
+	"an unchanged save rewrites the newest snapshot in place"
 
 "$AR" -q save --force
 assert_eq "$(count)" 2 "--force writes even when unchanged"
