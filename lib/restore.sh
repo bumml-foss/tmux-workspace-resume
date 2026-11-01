@@ -214,6 +214,7 @@ restore_from_file() {
 		# held until this process exits; save_now skips while it is held
 		exec 8>"$(restore_lock_file)"
 		flock -n 8 || die "another restore is running"
+		run_hook PRE_RESTORE "$file"
 	fi
 	nsess=$(jq '.sessions | length' "$file")
 	for ((i = 0; i < nsess; i++)); do
@@ -223,6 +224,7 @@ restore_from_file() {
 		restore_send_commands
 		touch "$(restore_marker)"
 		flock -u 8
+		run_hook POST_RESTORE "$file"
 		if [ "$layout_only" != 1 ] && [ "${RESTORE_SETTLE_S:-0}" -gt 0 ] 2>/dev/null; then
 			setsid -f bash -c "sleep $RESTORE_SETTLE_S; exec \"\$0\" save --quiet" "$TWR_BIN" </dev/null >/dev/null 2>&1 || true
 		fi

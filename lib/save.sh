@@ -147,10 +147,12 @@ save_now() {
 	if [ $force -eq 0 ] && save_unchanged "$json"; then
 		printf '%s' "$json" | snapshot_refresh "$scrollback"
 		log_debug "workspace unchanged since $(basename "$(readlink -f "$(snapshot_dir)/last.json")"); not writing a new snapshot"
+		run_hook POST_SAVE "$(readlink -f "$(snapshot_dir)/last.json")"
 		return 0
 	fi
 	local file; file=$(printf '%s' "$json" | snapshot_write "$scrollback") || return 1
 	log_info "saved $(snapshot_summary "$file") -> $file"
+	run_hook POST_SAVE "$file"
 }
 
 # save_debounced: coalesce a burst of hook events into one save after SAVE_DEBOUNCE_S.

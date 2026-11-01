@@ -145,6 +145,15 @@ restore_attempt_marker() { printf '%s/attempted-%s-%s' "$(runtime_dir)" "$(boot_
 # The restore lock: held (flock) by a running restore, released by the kernel however it ends.
 restore_lock_file() { printf '%s/restore.lock' "$(runtime_dir)"; }
 restore_in_progress() { ! flock -n "$(restore_lock_file)" true 2>/dev/null; }
+# run_hook NAME FILE: run the HOOK_<NAME> command line with bash, the snapshot as $1, output to
+# the log. A failing hook is logged; the save or restore carries on.
+run_hook() {
+	local var=HOOK_$1 rc=0
+	[ -n "${!var:-}" ] || return 0
+	timeout 30 bash -c "${!var}" "$var" "$2" </dev/null >>"$(log_file)" 2>&1 || rc=$?
+	if [ $rc -ne 0 ]; then log_warn "$var exited with $rc"; fi
+	return 0
+}
 # wait_for_server SECONDS: poll until a server with at least one session answers.
 wait_for_server() {
 	local n=$(( ${1:-5} * 10 ))

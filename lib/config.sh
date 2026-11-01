@@ -6,7 +6,8 @@
 # shellcheck disable=SC2034  # the keys are read by the other lib files
 
 TWR_CONFIG_KEYS="AUTO_RESTORE SAVE_INTERVAL_MIN TIMER_SAVE SAVE_DEBOUNCE_S RESTORE_SETTLE_S KEEP_SNAPSHOTS SCROLLBACK_LINES \
-RESUME_COMMANDS RESTORE_DELAY_MS RESTORE_STAGGER_MS SHELL_WAIT_S KEY_SAVE KEY_RESTORE TMUX_SOCKET LOG_LEVEL"
+RESUME_COMMANDS RESTORE_DELAY_MS RESTORE_STAGGER_MS SHELL_WAIT_S KEY_SAVE KEY_RESTORE TMUX_SOCKET LOG_LEVEL \
+HOOK_POST_SAVE HOOK_PRE_RESTORE HOOK_POST_RESTORE"
 
 config_load() {
 	AUTO_RESTORE=reboot          # always | reboot | never
@@ -24,6 +25,9 @@ config_load() {
 	KEY_RESTORE=C-r              # prefix + KEY_RESTORE restores last.json
 	TMUX_SOCKET=                 # -S path for non-default sockets (TMUX_TMPDIR users)
 	LOG_LEVEL=info               # debug | info | warn | error
+	HOOK_POST_SAVE=              # command lines run by bash with the snapshot as $1
+	HOOK_PRE_RESTORE=
+	HOOK_POST_RESTORE=
 
 	local f=${TWR_CONFIG_FILE:-$(config_dir)/config}
 	if [ -r "$f" ]; then

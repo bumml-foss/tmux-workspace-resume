@@ -24,6 +24,8 @@
   from a nested shell is found, and `sudo <program>` is matched by `<program>`. Jobs with
   redirected input or output are skipped, and serial devices on the command line are saved as
   their `/dev/serial/by-id/` link.
+- New settings `HOOK_POST_SAVE`, `HOOK_PRE_RESTORE` and `HOOK_POST_RESTORE`: command lines run by
+  bash with the snapshot's path as `$1`.
 
 ## 0.2.0 — 2026-10-09
 
