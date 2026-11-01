@@ -34,7 +34,9 @@
 #SCROLLBACK_LINES=0
 
 # Programs the whitelist resumer relaunches with their original arguments (space separated,
-# matched against the program name). Claude Code and ssh have their own resumers.
+# matched against the program name). A pipeline comes back when every program in it is listed;
+# `sudo <program>` needs only <program>, so never list sudo itself. Claude Code and ssh have
+# their own resumers.
 #RESUME_COMMANDS="vi vim nvim emacs nano man less more tail top htop"
 
 # Restore timing: wait for the pane's shell, then RESTORE_DELAY_MS before typing the command,

@@ -17,6 +17,11 @@
 - New setting `SCROLLBACK_LINES` (default 0, off): each save also stores that many lines of every
   pane's history, and a restore prints them above the pane's shell. A full-screen program's own
   screen is left out; the shell output it covers is kept.
+- The whitelist resumer looks at the pane's foreground job instead of only the shell's direct
+  children: a pipeline comes back when every program in it is in `RESUME_COMMANDS`, a job started
+  from a nested shell is found, and `sudo <program>` is matched by `<program>`. Jobs with
+  redirected input or output are skipped, and serial devices on the command line are saved as
+  their `/dev/serial/by-id/` link.
 
 ## 0.2.0 — 2026-10-09
 

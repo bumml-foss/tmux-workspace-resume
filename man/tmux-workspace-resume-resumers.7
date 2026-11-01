@@ -63,9 +63,22 @@ Two new agents started in one directory within the same second cannot be told ap
 the published formats, not verified against the real binaries.
 .TP
 .B 90-whitelist
-Claims a pane whose shell has a child named in the
+Claims a pane whose foreground job consists of programs named in the
 .B RESUME_COMMANDS
-setting and emits its command line.
+setting and emits its command line: a single command or a pipeline, also when it was started
+from a nested shell.
+.BI "sudo " program
+is matched by
+.IR program .
+A job with its standard input or output redirected is not claimed, since the redirection
+cannot be read back. A serial device on the command line is replaced by its
+.I /dev/serial/by\-id/
+link, which survives the renumbering of
+.IR ttyUSB *
+and
+.IR ttyACM *
+devices across reboots. Without such a job, a listed direct child of the shell (a suspended
+editor) is claimed.
 .SH CONTRACT
 A resumer is invoked as
 .B <resumer> probe
