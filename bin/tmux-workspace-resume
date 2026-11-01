@@ -43,6 +43,7 @@ usage: tmux-workspace-resume [-q] <command> [options]
   restore [--dry-run] [--layout-only] [--auto] [snapshot]
                                 rebuild from a snapshot (default: the newest) and relaunch programs
   list                          snapshots on disk
+  import [file]                 turn a tmux-resurrect save (default: its newest) into a snapshot
   status                        what is enabled, hooks, timer, newest snapshot
   enable [--byobu|--tmux]       wire tmux-workspace-resume into byobu (or ~/.tmux.conf) and start the save timer
   disable                       undo enable
@@ -98,7 +99,7 @@ main() {
 	tmux_args_init
 	state_init
 	case $cmd in
-		save|restore|list|status|enable|disable|resumers|shutdown|reboot|hook) "cmd_$cmd" "$@" ;;
+		save|restore|list|import|status|enable|disable|resumers|shutdown|reboot|hook) "cmd_$cmd" "$@" ;;
 		"") cmd_help >&2; return 2 ;;
 		*) echo "tmux-workspace-resume: unknown command '$cmd'" >&2; cmd_help >&2; return 2 ;;
 	esac

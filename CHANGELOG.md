@@ -26,6 +26,8 @@
   their `/dev/serial/by-id/` link.
 - New settings `HOOK_POST_SAVE`, `HOOK_PRE_RESTORE` and `HOOK_POST_RESTORE`: command lines run by
   bash with the snapshot's path as `$1`.
+- New command `import [file]` turns a tmux-resurrect save (default: its newest, with the pane
+  contents) into a snapshot; the README has a section for users coming from tmux-resurrect.
 
 ## 0.2.0 — 2026-10-09
 

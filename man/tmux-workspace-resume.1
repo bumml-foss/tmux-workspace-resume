@@ -78,6 +78,18 @@ runs at most once per server and stays silent.
 .B list
 Snapshots on disk, newest first, with their boot id and a summary.
 .TP
+.BR import " [\fIfile\fR]"
+Turn a tmux-resurrect save file into a snapshot and print the command that restores it. The
+default is tmux-resurrect's newest save,
+.I ~/.local/share/tmux/resurrect/last
+or
+.IR ~/.tmux/resurrect/last ;
+its pane contents, if tmux-resurrect saved them, become the snapshot's scrollback. Programs
+listed in
+.B RESUME_COMMANDS
+and ssh come back with their saved command line; agents come back as shells, since the file
+holds no session ids.
+.TP
 .B status
 Where tmux-workspace-resume is enabled, whether the hooks and the timer are active, the newest snapshot.
 .TP
