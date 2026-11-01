@@ -28,6 +28,11 @@
 # Snapshots kept in $XDG_STATE_HOME/tmux-workspace-resume/snapshots/ (older ones are deleted).
 #KEEP_SNAPSHOTS=20
 
+# Lines of history saved per pane with each snapshot and printed above the shell's prompt on
+# restore (0 = off). The text is stored gzipped beside the snapshot, readable only by you; it can
+# hold whatever the panes showed, passwords and tokens included.
+#SCROLLBACK_LINES=0
+
 # Programs the whitelist resumer relaunches with their original arguments (space separated,
 # matched against the program name). Claude Code and ssh have their own resumers.
 #RESUME_COMMANDS="vi vim nvim emacs nano man less more tail top htop"

@@ -47,7 +47,8 @@ tmux-workspace-resume reboot               # save, then reboot: the most exact s
 
 ## Limitations
 
-- Programs are started again, not continued: scrollback and a running agent's current turn are lost.
+- Programs are started again, not continued: a running agent's current turn is lost, and so is
+  the scrollback unless `SCROLLBACK_LINES` is set.
 - The Codex, Gemini and Copilot resumers are tested against fake programs only.
 - The save at shutdown is best effort; the last snapshot is at most 5 minutes old.
 

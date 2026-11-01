@@ -157,8 +157,13 @@ Settings, see
 User resumers; a file with the same name as a shipped one replaces it.
 .TP
 .I $XDG_STATE_HOME/tmux-workspace-resume/snapshots/
-Snapshots and
-.IR last.json .
+Snapshots,
+.IR last.json ,
+and with
+.B SCROLLBACK_LINES
+a
+.I <snapshot>.scrollback/
+directory of the panes' history beside each snapshot.
 .TP
 .I $XDG_RUNTIME_DIR/tmux-workspace-resume/
 Per-boot markers and locks.

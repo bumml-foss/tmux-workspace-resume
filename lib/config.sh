@@ -5,7 +5,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # shellcheck disable=SC2034  # the keys are read by the other lib files
 
-TWR_CONFIG_KEYS="AUTO_RESTORE SAVE_INTERVAL_MIN TIMER_SAVE SAVE_DEBOUNCE_S RESTORE_SETTLE_S KEEP_SNAPSHOTS \
+TWR_CONFIG_KEYS="AUTO_RESTORE SAVE_INTERVAL_MIN TIMER_SAVE SAVE_DEBOUNCE_S RESTORE_SETTLE_S KEEP_SNAPSHOTS SCROLLBACK_LINES \
 RESUME_COMMANDS RESTORE_DELAY_MS RESTORE_STAGGER_MS SHELL_WAIT_S KEY_SAVE KEY_RESTORE TMUX_SOCKET LOG_LEVEL"
 
 config_load() {
@@ -15,6 +15,7 @@ config_load() {
 	SAVE_DEBOUNCE_S=3            # coalesce hook-triggered saves
 	RESTORE_SETTLE_S=15          # re-save this long after a restore (0 = never)
 	KEEP_SNAPSHOTS=20
+	SCROLLBACK_LINES=0           # history lines saved per pane and printed on restore (0 = off)
 	RESUME_COMMANDS="vi vim nvim emacs nano man less more tail top htop"
 	RESTORE_DELAY_MS=300         # after the pane's shell is up, before typing the command
 	RESTORE_STAGGER_MS=300       # between panes, so ten agents do not start in the same instant

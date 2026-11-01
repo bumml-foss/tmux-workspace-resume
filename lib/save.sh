@@ -103,9 +103,34 @@ save_input_since_last() {
 	[ "$newest" -gt "$t" ]
 }
 
+# save_scrollback JSON: capture the last SCROLLBACK_LINES lines of every pane in the snapshot
+# into a new directory, one <pane id>.gz each, and print its path; nothing when SCROLLBACK_LINES
+# is 0. A pane in a full-screen program contributes the screen it returns to, not the program's.
+save_scrollback() {
+	local lines=${SCROLLBACK_LINES:-0} dir id alt hist text
+	[ "$lines" -gt 0 ] 2>/dev/null || return 0
+	mkdir -p "$(snapshot_dir)"
+	dir=$(mktemp -d "$(snapshot_dir)/.tmp.XXXXXX")
+	while IFS= read -r id; do
+		read -r alt hist < <(tmux_cmd display -p -t "$id" '#{alternate_on} #{history_size}' 2>/dev/null) || continue
+		# -E -1 without any history would capture the first visible line instead
+		text=$(
+			if [ "$alt" != 1 ]; then
+				tmux_cmd capture-pane -p -e -J -t "$id" -S "-$lines"
+			else
+				if [ "${hist:-0}" -gt 0 ]; then tmux_cmd capture-pane -p -e -J -t "$id" -S "-$lines" -E -1; fi
+				tmux_cmd capture-pane -p -e -J -a -t "$id"
+			fi 2>/dev/null
+		) || true
+		[ -n "$text" ] || continue
+		printf '%s\n\033[0m' "$text" | gzip > "$dir/${id#%}.gz"
+	done < <(printf '%s' "$1" | jq -r '.sessions[].windows[].panes[].id')
+	printf '%s' "$dir"
+}
+
 # save_now [--force]: write a snapshot unless a guard says the moment is wrong. An unchanged
-# workspace only refreshes the newest snapshot's mtime, so identical copies do not push older
-# states out of KEEP_SNAPSHOTS; --force writes anyway.
+# workspace only refreshes the newest snapshot's mtime and scrollback, so identical copies do
+# not push older states out of KEEP_SNAPSHOTS; --force writes anyway.
 save_now() {
 	local force=0
 	[ "${1:-}" = "--force" ] && force=1
@@ -115,14 +140,15 @@ save_now() {
 		log_info "the snapshot is from a previous boot and no restore ran on this server yet; keeping it (tmux-workspace-resume restore, or save --force)"
 		return 0
 	fi
-	local json
+	local json scrollback
 	if ! json=$(save_collect); then log_debug "no panes found; nothing to save"; return 0; fi
+	scrollback=$(save_scrollback "$json")
 	if [ $force -eq 0 ] && save_unchanged "$json"; then
-		touch "$(readlink -f "$(snapshot_dir)/last.json")"
+		snapshot_refresh "$scrollback"
 		log_debug "workspace unchanged since $(basename "$(readlink -f "$(snapshot_dir)/last.json")"); not writing a new snapshot"
 		return 0
 	fi
-	local file; file=$(printf '%s' "$json" | snapshot_write) || return 1
+	local file; file=$(printf '%s' "$json" | snapshot_write "$scrollback") || return 1
 	log_info "saved $(snapshot_summary "$file") -> $file"
 }
 
