@@ -1,0 +1,36 @@
+# tmux-workspace-resume — lint, privacy audit and tests for every push and pull request on GitHub.
+#
+# Runs on GitHub-hosted runners only, so code from a pull request never runs on a self-hosted
+# machine. Triggered by `pull_request`, never `pull_request_target`: a fork's code then runs
+# without this repository's secrets and with a read-only token. Third-party actions are pinned
+# to a commit, since a tag can be moved.
+#
+# The tests start private tmux servers (socket twr-test-<pid>) with fake agent and `ssh`
+# executables; they need tmux, jq, procps and a normal Linux userland, nothing else.
+name: ci
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0                  # the audit reads every commit of HEAD's history
+          persist-credentials: false
+      - name: Install tool chain
+        run: |
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq shellcheck tmux jq procps util-linux gitleaks
+      - name: Lint
+        run: make lint
+      - name: Privacy audit
+        run: make audit
+      - name: Test
+        run: make test
