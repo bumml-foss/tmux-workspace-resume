@@ -23,10 +23,11 @@ id, ssh, whitelist). Usage: `README.md`; layout and workflows: `CONTRIBUTING.md`
   in tmux 3.0+ (`tmux show-hooks -g` lists them; there is no `after-kill-window`).
 - **Nothing private goes into the repository**, not in code, tests, docs or commit messages: no
   real session ids, host names, IP addresses or home paths from a developer machine, no e-mail
-  addresses other than the project's. Examples use made-up values (`/home/me`,
-  `12345678-90ab-...`). `make audit` scans the whole history (gitleaks, e-mail addresses, home
-  paths, private hosts, real agent session ids on this machine, and a private denylist kept
-  outside the repository); it must pass before anything is pushed to a public remote.
+  addresses in the content. Examples use made-up values (`/home/me`, `12345678-90ab-...`,
+  `@example.com`). `make audit` scans the history of HEAD (gitleaks, e-mail addresses in files
+  and commit messages, home paths, private IPs and hosts); commit authors and sign-offs are
+  public by design and are not checked. It must pass before anything is pushed to a public
+  remote.
 
 ## Conventions
 
@@ -62,7 +63,7 @@ id, ssh, whitelist). Usage: `README.md`; layout and workflows: `CONTRIBUTING.md`
 ```bash
 make lint
 make test                                  # all tests, private tmux servers
-make audit                                 # privacy audit of the whole history (before any public push)
+make audit                                 # privacy audit of HEAD's history (before any public push)
 bin/tmux-workspace-resume save && bin/tmux-workspace-resume restore --dry-run     # against your live server: read-only
 tmux -L scratch -f /dev/null new-session -d -x 200 -y 50; TWR_TMUX_SOCKET_NAME=scratch bin/tmux-workspace-resume restore --layout-only
 make deb-docker                            # package + lintian

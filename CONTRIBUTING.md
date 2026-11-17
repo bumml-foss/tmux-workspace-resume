@@ -39,7 +39,7 @@ fresh, `never` leaves it to `prefix + C-r`. Everything else: `examples/config`.
 ```
 make lint          # shellcheck + bash -n
 make test          # tests/run-tests.sh — private tmux servers only, never your own session
-make audit         # privacy audit of the whole history; must pass before any public push
+make audit         # privacy audit of HEAD's history; must pass before a pull request
 make deb-docker    # dist/tmux-workspace-resume_<version>_all.deb built and lintian-checked in ubuntu:24.04
 make install PREFIX=~/.local   # or DESTDIR=... PREFIX=/usr for packaging
 ```
@@ -75,7 +75,15 @@ for incompatible changes and keep `restore` reading the old one; `tests/test-res
 
 ## Commits and releases
 
-Commits carry `Signed-off-by:` (`git commit -s`) and, for AI help, an `Assisted-by:` trailer
-naming the tool and model. To release, tag `v<version>` matching `VERSION` and
+Commits carry your own name and address (GitHub's noreply address is fine), `Signed-off-by:`
+(`git commit -s`) and, for AI help, an `Assisted-by:` trailer naming the tool and model rather
+than `Co-authored-by:`.
+
+`make audit` fails on data that should not become public: secrets, e-mail addresses in files or
+commit messages, home directories, private IP addresses and `.local`/`.lan`/`.internal` host
+names. Authors and sign-offs are not checked. Examples use made-up values: `/home/me`,
+`@example.com`, session ids like `12345678-90ab-...`.
+
+To release, tag `v<version>` matching `VERSION` and
 `debian/changelog`; CI runs lint, the privacy audit and the tests, builds the `.deb` in
 `ubuntu:24.04`, runs lintian and attaches it to the release for the tag.

@@ -25,7 +25,7 @@ lint: ## shellcheck + bash -n over every script
 test: ## run tests/test-*.sh on private tmux servers (never touches your byobu)
 	tests/run-tests.sh
 
-audit: ## privacy audit of the whole history (secrets, e-mails, paths, hosts, real session ids)
+audit: ## privacy audit of HEAD's history (secrets, e-mail addresses, home paths, private hosts)
 	scripts/audit.sh
 
 install: ## install under $(DESTDIR)$(PREFIX) (default /usr/local)

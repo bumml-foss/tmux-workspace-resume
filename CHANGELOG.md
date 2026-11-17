@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- `make audit` accepts outside contributors: author, committer and trailer lines such as
+  `Signed-off-by:` are no longer checked, GitHub noreply addresses are allowed, and it reads the
+  history of HEAD instead of every local branch. It checks the content (files and commit
+  messages) for secrets, e-mail addresses, home paths and private hosts, the same for everyone.
+
 ## 0.2.0 — 2026-10-09
 
 - Renamed from ai-revive to tmux-workspace-resume: the command (and `byobu-tmux-workspace-resume`),
