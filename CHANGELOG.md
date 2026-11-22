@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Added a resumer for Google Antigravity CLI (`60-agy`): detects live conversations via open
+  `~/.gemini/antigravity-cli/presence/<uuid>.lock` / `conversations/<uuid>.db*` files (falling
+  back to `--conversation <id>`, `history.jsonl`, or the original command line) and relaunches
+  with `agy --conversation <id>`.
 - Moved project agent instructions from `CLAUDE.md` to `.agents/rules/project.md` with `AGENTS.md`
   and `GEMINI.md` symlinks so all CLI coding agents share one tool-agnostic harness.
 
