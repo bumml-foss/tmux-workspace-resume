@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Moved project agent instructions from `CLAUDE.md` to `.agents/rules/project.md` with `AGENTS.md`
+  and `GEMINI.md` symlinks so all CLI coding agents share one tool-agnostic harness.
+
 ## 0.2.0 — 2026-10-09
 
 - Renamed from ai-revive to tmux-workspace-resume: the command (and `byobu-tmux-workspace-resume`),

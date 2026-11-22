@@ -1,7 +1,8 @@
 # tmux-workspace-resume
 
-tmux/byobu workspace persistence across reboots, with pluggable resumers (Claude Code by session
-id, ssh, whitelist). Usage: `README.md`; layout and workflows: `CONTRIBUTING.md`. Plain bash + jq, GPL-3.
+tmux/byobu workspace persistence across reboots, with pluggable resumers (Claude Code, Codex,
+Gemini, Copilot by session id, ssh, whitelist). Usage: `README.md`; layout and workflows:
+`CONTRIBUTING.md`. Plain bash + jq, GPL-3.
 
 ## Hard rules
 
@@ -31,8 +32,8 @@ id, ssh, whitelist). Usage: `README.md`; layout and workflows: `CONTRIBUTING.md`
 ## Conventions
 
 - Commits are signed off and credit AI help with a trailer, never a co-author line:
-  `Assisted-by: Claude:<model id>` followed by `Signed-off-by: Benedikt Humml <bumml.foss@proton.me>`
-  (`git commit -s` adds the latter).
+  `Assisted-by: <Tool>:<model id>` (e.g. `Claude:<model id>`, `Antigravity:<model id>`) followed by
+  `Signed-off-by: Benedikt Humml <bumml.foss@proton.me>` (`git commit -s` adds the latter).
 - `#!/usr/bin/env bash`, `set -euo pipefail`, tabs. Shellcheck-clean with `.shellcheckrc`.
   CI lints with Ubuntu 24.04's shellcheck 0.9.0, which flags `A && B || C` (SC2015) where newer
   releases stay quiet: write an `if`. Without a local shellcheck, lint with the same version via
