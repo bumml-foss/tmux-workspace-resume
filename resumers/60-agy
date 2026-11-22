@@ -1,0 +1,83 @@
+#!/usr/bin/env bash
+# tmux-workspace-resume resumer: Google Antigravity CLI (agy). Relaunches the conversation that
+# was open in the pane with `agy --conversation <conversation-id>`.
+#
+# Antigravity CLI keeps a lockfile open at ~/.gemini/antigravity-cli/presence/<uuid>.lock for the
+# lifetime of a conversation (and ~/.gemini/antigravity-cli/conversations/<uuid>.db* while active).
+# The conversation is identified by such an open file, else by `--conversation <uuid>` on its
+# command line (how a restore relaunches it), else by the conversation in history.jsonl for the
+# process's workspace created soonest after the process started (or most recently touched), else
+# by re-emitting the command line the agent was started with.
+# SPDX-License-Identifier: GPL-3.0-or-later
+set -euo pipefail
+# shellcheck source=../lib/common.sh
+. "${TWR_HOME:?}/lib/common.sh"
+# shellcheck source=../lib/agents.sh
+. "$TWR_HOME/lib/agents.sh"
+
+case ${1:-} in
+	info) echo "Antigravity CLI: resume the conversation that was open in the pane (agy --conversation <conversation-id>)"; exit 0 ;;
+	probe) ;;
+	*) echo "usage: $0 probe|info" >&2; exit 2 ;;
+esac
+
+RE='(^|[/ ])agy( |$)'
+dir=${ANTIGRAVITY_CLI_HOME:-$HOME/.gemini/antigravity-cli}
+pid=$(agent_find_process "${TWR_PANE_PID:?}" "$RE") || exit 1
+cwd=$(proc_cwd "$pid")
+
+# 1. a presence lockfile or conversation database the process holds open
+while IFS= read -r f; do
+	id=""
+	case $f in
+		"$dir"/presence/*.lock)
+			id=${f#"$dir"/presence/}
+			id=${id%.lock}
+			;;
+		"$dir"/conversations/*.db|"$dir"/conversations/*.db-wal|"$dir"/conversations/*.db-shm)
+			id=${f#"$dir"/conversations/}
+			id=${id%%.db*}
+			;;
+	esac
+	if [[ $id =~ ^$AGENT_UUID_RE$ ]]; then
+		agent_emit agy "agy --conversation $(shell_quote "$id")" "${cwd:-$TWR_CWD}" "$id" open-file
+		exit 0
+	fi
+done < <(proc_open_paths "$pid")
+
+# 2. the conversation named on the command line (`agy --conversation <id>`, as a restore launches it)
+if id=$(agent_resume_arg "$pid"); then
+	agent_emit agy "agy --conversation $(shell_quote "$id")" "${cwd:-$TWR_CWD}" "$id" resume-argument
+	exit 0
+fi
+
+# 3. the conversation in history.jsonl for the process's workspace that this process began
+#    (created soonest after its start) or resumed (newest mtime)
+if [ -r "$dir/history.jsonl" ] && [ -n "$cwd" ] && start=$(proc_start_epoch "$pid"); then
+	best=$(while IFS=$'\t' read -r created h_mtime id; do
+		[[ $id =~ ^$AGENT_UUID_RE$ ]] || continue
+		mtime=$h_mtime
+		for p in "$dir/presence/$id.lock" "$dir/conversations/$id.db" "$dir/conversations/$id.db-wal"; do
+			if [ -e "$p" ]; then
+				pm=$(file_mtime "$p")
+				if [ "$pm" -gt "$mtime" ]; then mtime=$pm; fi
+			fi
+		done
+		printf '%s\t%s\t%s\n' "$created" "$mtime" "$id"
+	done < <(jq -r --arg cwd "$cwd" '
+		select((.workspace // "") == $cwd and ((.conversationId // "") | length > 0))
+		| [((.timestamp // 0) / 1000 | floor), .conversationId]
+		| @tsv
+	' "$dir/history.jsonl" 2>/dev/null | awk -F'\t' '
+		{ id=$2; ts=$1+0; if (!(id in min) || ts < min[id]) min[id]=ts; if (!(id in max) || ts > max[id]) max[id]=ts }
+		END { for (id in min) printf "%d\t%d\t%s\n", min[id], max[id], id }
+	') | agent_pick "$start") || best=""
+	if [ -n "$best" ]; then
+		agent_emit agy "agy --conversation $(shell_quote "$best")" "$cwd" "$best" started-after-process
+		exit 0
+	fi
+fi
+
+# 4. no conversation found: relaunch what was typed (a new conversation)
+args=$(agent_args_after "$pid" "$RE")
+agent_emit agy "agy${args:+ $args}" "${cwd:-$TWR_CWD}" "" argv

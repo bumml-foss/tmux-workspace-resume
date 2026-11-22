@@ -1,7 +1,8 @@
 # tmux-workspace-resume
 
-tmux/byobu workspace persistence across reboots, with pluggable resumers (Claude Code by session
-id, ssh, whitelist). Usage: `README.md`; layout and workflows: `CONTRIBUTING.md`. Plain bash + jq, GPL-3.
+tmux/byobu workspace persistence across reboots, with pluggable resumers (Claude Code, Codex,
+Gemini, Copilot and Antigravity CLI by session/conversation id, ssh, whitelist). Usage:
+`README.md`; layout and workflows: `CONTRIBUTING.md`. Plain bash + jq, GPL-3.
 
 ## Hard rules
 
@@ -32,8 +33,8 @@ id, ssh, whitelist). Usage: `README.md`; layout and workflows: `CONTRIBUTING.md`
 ## Conventions
 
 - Commits are signed off and credit AI help with a trailer, never a co-author line:
-  `Assisted-by: Claude:<model id>` followed by `Signed-off-by: Benedikt Humml <bumml.foss@proton.me>`
-  (`git commit -s` adds the latter).
+  `Assisted-by: <Tool>:<model id>` (e.g. `Claude:<model id>`, `Antigravity:<model id>`) followed by
+  `Signed-off-by: Benedikt Humml <bumml.foss@proton.me>` (`git commit -s` adds the latter).
 - `#!/usr/bin/env bash`, `set -euo pipefail`, tabs. Shellcheck-clean with `.shellcheckrc`.
   CI lints with Ubuntu 24.04's shellcheck 0.9.0, which flags `A && B || C` (SC2015) where newer
   releases stay quiet: write an `if`. Without a local shellcheck, lint with the same version via
@@ -49,14 +50,15 @@ id, ssh, whitelist). Usage: `README.md`; layout and workflows: `CONTRIBUTING.md`
 - Match Claude panes on `@window.%pane` only; the session-name prefix in
   `~/.claude/sessions/<pid>.json` goes stale when byobu re-attaches.
 
-- Agent resumers without a pane registry (codex, gemini, copilot) use `lib/agents.sh` and try, in
-  order: a session file the process holds open; `agent_resume_arg` (a UUID after `--resume` or
-  `resume` on its command line); `agent_pick` (session created soonest after the process started,
+- Agent resumers without a pane registry (codex, gemini, copilot, agy) use `lib/agents.sh` and try, in
+  order: a session file the process holds open (for `agy`, `~/.gemini/antigravity-cli/presence/<uuid>.lock`
+  or `conversations/<uuid>.db*`); `agent_resume_arg` (a UUID after `--resume`, `resume` or
+  `--conversation` on its command line); `agent_pick` (session created soonest after the process started,
   else newest modified); the command line. The resume argument must come before `agent_pick`:
   a restore starts all agents within milliseconds, which start times cannot tell apart.
   `agent_find_process` matches the whole command line, so node-based CLIs are found. Their fakes
-  in `tests/fakes/` write the tools' documented files and block as `node <script> <args>`,
-  keeping the arguments on the command line as the real CLIs do (`exec -a x sleep` loses them).
+  in `tests/fakes/` write the tools' documented files and block while keeping arguments on the
+  command line as the real CLIs do (`exec -a x sleep` loses them).
 
 ## Verifying a change
 

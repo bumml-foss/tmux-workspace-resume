@@ -11,11 +11,11 @@ pull requests are welcome; please keep changes small and covered by a test.
 | `bin/byobu-tmux-workspace-resume` | same CLI, byobu flavour (acts on the byobu config dir) |
 | `tmux-workspace-resume.tmux` | plugin entry point run at tmux server start: installs hooks + key bindings, starts the auto-restore |
 | `lib/` | bash libraries (save, restore, resumer dispatch, enable, config, snapshot files, layout scaling, agent helpers) |
-| `resumers/` | `10-claude`, `20-ssh`, `30-codex`, `40-gemini`, `50-copilot`, `90-whitelist` — see `man tmux-workspace-resume-resumers` for writing your own |
+| `resumers/` | `10-claude`, `20-ssh`, `30-codex`, `40-gemini`, `50-copilot`, `60-agy`, `90-whitelist` — see `man tmux-workspace-resume-resumers` for writing your own |
 | `systemd/user/` | periodic save timer and best-effort shutdown save |
 | `examples/config` | every setting with its default |
 | `man/` | `tmux-workspace-resume(1)`, `tmux-workspace-resume-resumers(7)` |
-| `tests/` | `run-tests.sh` runs `test-*.sh`, each on a private tmux server with fake `claude`/`codex`/`gemini`/`copilot`/`ssh` executables that write the real tools' session files |
+| `tests/` | `run-tests.sh` runs `test-*.sh`, each on a private tmux server with fake `claude`/`codex`/`gemini`/`copilot`/`agy`/`ssh` executables that write the real tools' session files |
 | `debian/` | packaging; `make deb-docker` builds the `.deb` in a clean `ubuntu:24.04` |
 
 ## How a reboot works
@@ -46,16 +46,20 @@ make install PREFIX=~/.local   # or DESTDIR=... PREFIX=/usr for packaging
 
 ## How agents are matched to their sessions
 
-Claude Code records the tmux pane it runs in, so its resumer is exact. Codex, Gemini and Copilot
-do not, so their resumers find the agent's process under the pane's shell and identify the
-session by, in order: a session file the process holds open; the session id on its command line
-(`--resume <id>`, which is how a restore relaunches them); the session created soonest after the
-process started in the process's directory (or, for a resumed session, the most recently
-modified one); and as a last resort the command line the agent was started with. Two new agents
-started in the same directory within the same second cannot be told apart. These three were
-written from the tools' published formats and tested against fakes that reproduce those
-formats, not against the real binaries; `tmux-workspace-resume resumers probe %<pane>` shows what a live
-pane would get.
+Claude Code records the tmux pane it runs in, so its resumer is exact. Antigravity CLI (`agy`)
+holds a lockfile open at `~/.gemini/antigravity-cli/presence/<uuid>.lock` (and
+`conversations/<uuid>.db*` while active), so its resumer is exact even when multiple `agy` panes
+share a directory; it falls back to `--conversation <id>` on the command line, then
+`history.jsonl`, then the original command line (verified against the real binary). Codex, Gemini
+and Copilot do not record their tmux pane, so their resumers find the agent's process under the
+pane's shell and identify the session by, in order: a session file the process holds open; the
+session id on its command line (`--resume <id>`, which is how a restore relaunches them); the
+session created soonest after the process started in the process's directory (or, for a resumed
+session, the most recently modified one); and as a last resort the command line the agent was
+started with. Two new agents started in the same directory within the same second cannot be told
+apart. Those three were written from the tools' published formats and tested against fakes that
+reproduce those formats, not against the real binaries; `tmux-workspace-resume resumers probe
+%<pane>` shows what a live pane would get.
 
 ## Adding a resumer
 

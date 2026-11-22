@@ -2,8 +2,8 @@
 
 Your tmux or byobu workspace survives a reboot. Sessions, windows, panes, layouts and working
 directories come back, and so does the program in each pane: Claude Code, OpenAI Codex CLI,
-Gemini CLI and GitHub Copilot CLI resume their exact conversation by session id, ssh reconnects,
-and other programs can be whitelisted. GPL-3.0-or-later.
+Gemini CLI, GitHub Copilot CLI and Google Antigravity CLI (`agy`) resume their exact conversation
+by session id, ssh reconnects, and other programs can be whitelisted. GPL-3.0-or-later.
 
 ## Install
 
