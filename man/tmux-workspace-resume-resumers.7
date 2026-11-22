@@ -62,6 +62,24 @@ and
 Two new agents started in one directory within the same second cannot be told apart. Written from
 the published formats, not verified against the real binaries.
 .TP
+.B 60-agy
+Google Antigravity CLI
+.RB ( agy )
+keeps a lockfile open at
+.I ~/.gemini/antigravity-cli/presence/<uuid>.lock
+for the lifetime of a conversation (and
+.I ~/.gemini/antigravity-cli/conversations/<uuid>.db*
+while active). The resumer identifies the conversation by such an open file, else by
+.B \-\-conversation
+.I id
+on its command line, else by the conversation in
+.I ~/.gemini/antigravity-cli/history.jsonl
+for the process's workspace touched after the process started, and emits
+.B agy \-\-conversation
+.IR id .
+When no conversation can be found it re-emits the original command line. Verified against the
+real binary.
+.TP
 .B 90-whitelist
 Claims a pane whose shell has a child named in the
 .B RESUME_COMMANDS
